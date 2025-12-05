@@ -1,7 +1,9 @@
 import { Building2, BookOpen, FileCheck, Camera, Globe, GitCompare } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import { useLanguage } from '../i18n';
 
 function DataHub() {
+  const { t } = useLanguage();
   const [visibleElements, setVisibleElements] = useState<Set<number>>(new Set());
   const sectionRef = useRef<HTMLElement>(null);
   const cardRefs = useRef<(HTMLDivElement | HTMLAnchorElement | null)[]>([]);
@@ -48,38 +50,38 @@ function DataHub() {
   const cards = [
     {
       icon: Building2,
-      title: 'Об университете',
-      description: 'Миссия, история, достижения, руководство и другие базовые сведения образовательного учреждения',
+      title: t.dataHub.features.about.title,
+      description: t.dataHub.features.about.description,
       gradient: 'from-blue-500 to-cyan-500'
     },
     {
       icon: BookOpen,
-      title: 'Академические программы',
-      description: 'Каталог всех образовательных программ с подробным описанием направлений, курсов и условий обучения',
+      title: t.dataHub.features.programs.title,
+      description: t.dataHub.features.programs.description,
       gradient: 'from-cyan-500 to-blue-600'
     },
     {
       icon: FileCheck,
-      title: 'Приём и поступление',
-      description: 'Требования к абитуриентам, сроки подачи документов, процесс поступления, гранты, стипендии и финансовая поддержка',
+      title: t.dataHub.features.admission.title,
+      description: t.dataHub.features.admission.description,
       gradient: 'from-blue-600 to-blue-700'
     },
     {
       icon: Camera,
-      title: '3D-тур',
-      description: 'Интерактивная возможность изучить университетский кампус в формате виртуальной экскурсии',
+      title: t.dataHub.features.tour.title,
+      description: t.dataHub.features.tour.description,
       gradient: 'from-blue-700 to-cyan-600'
     },
     {
       icon: Globe,
-      title: 'Международное сотрудничество',
-      description: 'Сведения о программах обмена, партнёрских университетах и возможностях для иностранных студентов',
+      title: t.dataHub.features.international.title,
+      description: t.dataHub.features.international.description,
       gradient: 'from-cyan-600 to-blue-500'
     },
     {
       icon: GitCompare,
-      title: 'Функция сравнения',
-      description: 'Инструмент для сравнения университетов или отдельных образовательных программ между собой по важным параметрам',
+      title: t.dataHub.features.compare.title,
+      description: t.dataHub.features.compare.description,
       gradient: 'from-blue-500 to-blue-600'
     }
   ];
@@ -89,17 +91,17 @@ function DataHub() {
       <div className="max-w-7xl mx-auto">
         <div className="section-header text-center mb-16">
           <h2 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-700 to-cyan-600 bg-clip-text text-transparent fade-in-up" style={{ animationDelay: '0.1s' }}>
-            DataHub ВУЗ-ов РК
+            {t.dataHub.title}
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto fade-in-up" style={{ animationDelay: '0.2s' }}>
-            Единый цифровой каталог университетов Казахстана. Вся ключевая информация о вузах в удобном формате для поиска, изучения и сравнения
+            {t.dataHub.description}
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {cards.map((card, index) => {
-            const isCompare = card.title === 'Функция сравнения';
-            const isTour = card.title === '3D-тур';
+            const isCompare = index === 5; // Compare card is last (index 5)
+            const isTour = index === 3; // 3D Tour card is at index 3
             const CardWrapper = (isCompare || isTour) ? 'a' : 'div';
             const wrapperProps = isCompare ? { href: '#compare' } : isTour ? { href: '#tour' } : {};
             const isVisible = visibleElements.has(index);
@@ -125,7 +127,7 @@ function DataHub() {
                   <p className="text-gray-600 leading-relaxed">{card.description}</p>
                   {(isCompare || isTour) && (
                     <div className="mt-4 text-blue-600 font-medium flex items-center gap-2">
-                      {isCompare ? 'Перейти к сравнению' : 'Открыть 3D-туры'}
+                      {t.services.learnMore}
                       <card.icon className="w-4 h-4" />
                     </div>
                   )}

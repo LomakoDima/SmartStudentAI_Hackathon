@@ -1,4 +1,4 @@
-import { Download, ArrowLeft, Move, ZoomIn, ZoomOut, RotateCcw, Copy, Trash2, Edit, Palette, Plus, Pin, PinOff, MousePointer2, X, CheckSquare } from 'lucide-react';
+import { Download, ArrowLeft, Move, ZoomIn, ZoomOut, RotateCcw, Copy, Trash2, Edit, Palette, Plus, Pin, PinOff, MousePointer2, X, CheckSquare, FileText, FileImage, File, ChevronDown, Printer, Share2 } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import Header from './Header';
 import Footer from './Footer';
@@ -39,11 +39,7 @@ function ConverterResult() {
   // Состояние развернутости для каждого узла (все уровни)
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set([
     'center', 
-    'node1', 'node2', 'node3', 'node4',
-    'node1_0', 'node1_1', 'node1_2',
-    'node2_0', 'node2_1', 'node2_2',
-    'node3_0', 'node3_1', 'node3_2',
-    'node4_0', 'node4_1', 'node4_2',
+    // 2-й и 3-й уровни скрыты по умолчанию - раскрываются кликом на точку
   ]));
   // Состояние для перетаскивания точек соединения
   const [draggedJunction, setDraggedJunction] = useState<string | null>(null);
@@ -52,9 +48,18 @@ function ConverterResult() {
   // Выделенные точки соединения
   const [selectedJunctions, setSelectedJunctions] = useState<Set<string>>(new Set());
   const [selectedJunctionsInitialPositions, setSelectedJunctionsInitialPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
+  // Начальная позиция мыши для определения порога движения
+  const [junctionMouseStart, setJunctionMouseStart] = useState<{ x: number; y: number } | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Состояние для меню скачивания
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  const downloadMenuRef = useRef<HTMLDivElement>(null);
+
+  // Состояние для данных от ИИ
+  const [aiData, setAiData] = useState<any>(null);
 
   useEffect(() => {
     const updateFormat = () => {
@@ -64,6 +69,17 @@ function ConverterResult() {
       const formatParam = params.get('format') as 'summary' | 'mindmap' | 'cards' | 'notes';
       if (formatParam && ['summary', 'mindmap', 'cards', 'notes'].includes(formatParam)) {
         setFormat(formatParam);
+      }
+      
+      // Загружаем данные от ИИ из localStorage
+      const savedResult = localStorage.getItem('converterResult');
+      if (savedResult) {
+        try {
+          const parsed = JSON.parse(savedResult);
+          setAiData(parsed);
+        } catch (e) {
+          console.error('Ошибка парсинга данных ИИ:', e);
+        }
       }
     };
 
@@ -84,75 +100,120 @@ function ConverterResult() {
       const thirdRowX = window.innerWidth * 0.48; // 48% - узлы уровня 3
       const fourthRowX = window.innerWidth * 0.72; // 72% - узлы уровня 4
       const centerY = window.innerHeight / 2;
-      const junctionOffset = 80; // Отступ точки соединения
-      const verticalSpacing = 180; // Расстояние между узлами уровня 2
-      const thirdLevelSpacing = 50; // Расстояние между узлами уровня 3
-      const fourthLevelSpacing = 35; // Расстояние между узлами уровня 4
+      const junctionOffset = 100; // Отступ точки соединения
       
-      // Данные для узлов с подтемами
-      const childNodesData = [
-        { 
-          id: 'node1', 
-          y: centerY - verticalSpacing * 1.5, 
-          content: 'Обучение с учителем', 
-          color: 'from-blue-400 to-blue-600',
-          subtopics: [
-            { name: 'Линейная регрессия', children: ['MSE', 'R²'] },
-            { name: 'Деревья решений', children: ['Gini', 'Entropy'] },
-            { name: 'Случайный лес', children: ['Bagging', 'Feature'] }
-          ]
-        },
-        { 
-          id: 'node2', 
-          y: centerY - verticalSpacing * 0.5, 
-          content: 'Обучение без учителя', 
-          color: 'from-cyan-400 to-cyan-600',
-          subtopics: [
-            { name: 'K-means', children: ['Elbow', 'Silhouette'] },
-            { name: 'DBSCAN', children: ['Eps', 'MinPts'] },
-            { name: 'PCA', children: ['Variance', 'Components'] }
-          ]
-        },
-        { 
-          id: 'node3', 
-          y: centerY + verticalSpacing * 0.5, 
-          content: 'Применение', 
-          color: 'from-green-400 to-green-600',
-          subtopics: [
-            { name: 'CV', children: ['CNN', 'YOLO'] },
-            { name: 'NLP', children: ['BERT', 'GPT'] },
-            { name: 'RecSys', children: ['CF', 'Content'] }
-          ]
-        },
-        { 
-          id: 'node4', 
-          y: centerY + verticalSpacing * 1.5, 
-          content: 'Алгоритмы', 
-          color: 'from-purple-400 to-purple-600',
-          subtopics: [
-            { name: 'Градиентный спуск', children: ['SGD', 'Adam'] },
-            { name: 'Backprop', children: ['Chain', 'Auto'] },
-            { name: 'Оптимизация', children: ['L1', 'L2'] }
-          ]
-        },
+      // Цвета для веток
+      const branchColors = [
+        'from-blue-400 to-blue-600',
+        'from-cyan-400 to-cyan-600',
+        'from-green-400 to-green-600',
+        'from-purple-400 to-purple-600',
+        'from-pink-400 to-pink-600',
+        'from-orange-400 to-orange-600'
       ];
+      
+      // Получаем данные от ИИ или используем fallback
+      let centerContent = 'Тема';
+      let childNodesData: { id: string; content: string; color: string; subtopics: { name: string; children: string[] }[] }[] = [];
+      
+      if (aiData?.branches) {
+        // Используем данные от ИИ
+        centerContent = aiData.center || 'Главная тема';
+        childNodesData = aiData.branches.map((branch: any, index: number) => ({
+          id: `node${index + 1}`,
+          content: branch.title,
+          color: branchColors[index % branchColors.length],
+          subtopics: (branch.children || []).slice(0, 3).map((child: any) => ({
+            name: child.title,
+            children: (child.children || []).slice(0, 2).map((c: any) => c.title || c)
+          }))
+        }));
+      } else {
+        // Fallback данные если ИИ не вернул результат
+        centerContent = 'Машинное обучение';
+        childNodesData = [
+          { 
+            id: 'node1', 
+            content: 'Обучение с учителем', 
+            color: 'from-blue-400 to-blue-600',
+            subtopics: [
+              { name: 'Линейная регрессия', children: ['MSE', 'R²'] },
+              { name: 'Деревья решений', children: ['Gini', 'Entropy'] },
+              { name: 'Случайный лес', children: ['Bagging', 'Feature'] }
+            ]
+          },
+          { 
+            id: 'node2', 
+            content: 'Обучение без учителя', 
+            color: 'from-cyan-400 to-cyan-600',
+            subtopics: [
+              { name: 'K-means', children: ['Elbow', 'Silhouette'] },
+              { name: 'DBSCAN', children: ['Eps', 'MinPts'] },
+              { name: 'PCA', children: ['Variance', 'Components'] }
+            ]
+          },
+          { 
+            id: 'node3', 
+            content: 'Применение', 
+            color: 'from-green-400 to-green-600',
+            subtopics: [
+              { name: 'CV', children: ['CNN', 'YOLO'] },
+              { name: 'NLP', children: ['BERT', 'GPT'] },
+              { name: 'RecSys', children: ['CF', 'Content'] }
+            ]
+          },
+          { 
+            id: 'node4', 
+            content: 'Алгоритмы', 
+            color: 'from-purple-400 to-purple-600',
+            subtopics: [
+              { name: 'Градиентный спуск', children: ['SGD', 'Adam'] },
+              { name: 'Backprop', children: ['Chain', 'Auto'] },
+              { name: 'Оптимизация', children: ['L1', 'L2'] }
+            ]
+          },
+        ];
+      }
+      
+      // Расстояния
+      const thirdLevelSpacing = 80; // Расстояние ВНУТРИ группы (маленькое)
+      const fourthLevelSpacing = 70; // Расстояние между узлами 4-го уровня
       
       // Генерируем узлы уровня 3 и 4
       const thirdLevelNodes: DraggableNode[] = [];
       const fourthLevelNodes: DraggableNode[] = [];
       
-      childNodesData.forEach((childNode) => {
-        const numThirdLevel = childNode.subtopics.length;
-        const startOffset = -(numThirdLevel - 1) * thirdLevelSpacing / 2;
+      // Максимально компактные расстояния
+      const fourthLevelInnerSpacing = 45; // Внутри подгруппы 4-го уровня
+      const fourthLevelSubgroupSpacing = 50; // Между подгруппами (3-й ряд) - минимум
+      const groupSpacing = 0; // Без пробелов между цветовыми группами
+      
+      // Считаем общую высоту
+      const numGroups = childNodesData.length;
+      const nodesPerGroup = 3; // узлов в каждой группе
+      const nodesPerSubgroup = 2; // узлов 4-го уровня в подгруппе
+      const subgroupHeight = (nodesPerSubgroup - 1) * fourthLevelInnerSpacing;
+      const colorGroupHeight = nodesPerGroup * subgroupHeight + (nodesPerGroup - 1) * fourthLevelSubgroupSpacing;
+      const totalHeight = numGroups * colorGroupHeight + (numGroups - 1) * groupSpacing;
+      
+      let currentY = centerY - totalHeight / 2;
+      
+      // Позиции родителей (уровень 2) будут вычислены на основе их детей
+      const parentPositions: { [key: string]: number } = {};
+      
+      childNodesData.forEach((childNode, groupIndex) => {
+        const groupStartY = currentY;
+        const childYPositions: number[] = [];
+        
+        // Считаем позиции для узлов 4-го уровня в этой цветовой группе
+        let fourthY = currentY;
         
         childNode.subtopics.forEach((subtopic, i) => {
           const thirdLevelId = `${childNode.id}_${i}`;
-          const thirdLevelY = childNode.y + startOffset + i * thirdLevelSpacing;
           
           // Узлы четвёртого уровня для этого узла третьего уровня
           const fourthLevelIds: string[] = [];
-          const numFourthLevel = subtopic.children.length;
-          const fourthStartOffset = -(numFourthLevel - 1) * fourthLevelSpacing / 2;
+          const fourthSubgroupStartY = fourthY;
           
           subtopic.children.forEach((child, j) => {
             const fourthLevelId = `${thirdLevelId}_${j}`;
@@ -161,13 +222,19 @@ function ConverterResult() {
             fourthLevelNodes.push({
               id: fourthLevelId,
               x: fourthRowX,
-              y: thirdLevelY + fourthStartOffset + j * fourthLevelSpacing,
+              y: fourthY,
               content: child,
               color: childNode.color,
               connections: [thirdLevelId],
               pinned: false,
             });
+            
+            fourthY += fourthLevelInnerSpacing;
           });
+          
+          // Вычисляем Y для узла 3-го уровня как центр его детей 4-го уровня
+          const fourthSubgroupEndY = fourthY - fourthLevelInnerSpacing;
+          const thirdLevelY = (fourthSubgroupStartY + fourthSubgroupEndY) / 2;
           
           thirdLevelNodes.push({
             id: thirdLevelId,
@@ -180,7 +247,24 @@ function ConverterResult() {
             junctionX: thirdRowX + junctionOffset,
             junctionY: thirdLevelY,
           });
+          
+          childYPositions.push(thirdLevelY);
+          
+          // Добавляем пробел между подгруппами 4-го уровня (но не после последней)
+          if (i < childNode.subtopics.length - 1) {
+            fourthY += fourthLevelSubgroupSpacing - fourthLevelInnerSpacing;
+          }
         });
+        
+        // Вычисляем позицию родителя как среднее позиций детей
+        parentPositions[childNode.id] = (childYPositions[0] + childYPositions[childYPositions.length - 1]) / 2;
+        
+        // Добавляем большой пробел МЕЖДУ цветовыми группами (но не после последней)
+        if (groupIndex < childNodesData.length - 1) {
+          fourthY += groupSpacing;
+        }
+        
+        currentY = fourthY; // Синхронизируем
       });
       
       // Создаем дочерние узлы с junctionX/junctionY
@@ -189,21 +273,25 @@ function ConverterResult() {
           .filter(n => n.connections?.includes(childNode.id))
           .map(n => n.id);
         
+        const parentY = parentPositions[childNode.id];
+        
         return {
           id: childNode.id,
           x: secondRowX,
-          y: childNode.y,
+          y: parentY,
           content: childNode.content,
           color: childNode.color,
           connections: ['center', ...childThirdLevelIds],
           pinned: false,
           junctionX: secondRowX + junctionOffset,
-          junctionY: childNode.y,
+          junctionY: parentY,
         };
       });
       
+      const centerConnections = childNodesData.map(n => n.id);
+      
       const newNodes: DraggableNode[] = [
-        { id: 'center', x: firstRowX, y: centerY, content: 'Машинное обучение', color: 'from-blue-500 to-cyan-500', connections: ['node1', 'node2', 'node3', 'node4'], pinned: false, junctionX: firstRowX + junctionOffset, junctionY: centerY },
+        { id: 'center', x: firstRowX, y: centerY, content: centerContent, color: 'from-blue-500 to-cyan-500', connections: centerConnections, pinned: false, junctionX: firstRowX + junctionOffset, junctionY: centerY },
         ...childNodesWithJunction,
         ...thirdLevelNodes,
         ...fourthLevelNodes,
@@ -212,51 +300,116 @@ function ConverterResult() {
       setNodes(newNodes);
       setNodesAppearing(new Set(newNodes.map(n => n.id)));
       setTimeout(() => setNodesAppearing(new Set()), 300);
-    } else if (format === 'notes') {
-      // Располагаем заметки случайно по экрану
-      const centerX = window.innerWidth / 2;
-      const centerY = window.innerHeight / 2;
-      const randomOffset = () => (Math.random() - 0.5) * 600; // Случайное смещение до 300px в каждую сторону
-      const randomRotation = () => (Math.random() - 0.5) * 8; // Случайный поворот от -4 до +4 градусов
       
-      const newNodes = [
-        { 
-          id: 'note1', 
-          x: centerX + randomOffset(), 
-          y: centerY + randomOffset(), 
-          content: 'Машинное обучение\nАвтоматическое обучение систем', 
-          color: 'from-blue-500 to-blue-600',
-          pinned: false,
-          rotation: randomRotation()
-        },
-        { 
-          id: 'note2', 
-          x: centerX + randomOffset(), 
-          y: centerY + randomOffset(), 
-          content: 'Типы ML\nSupervised, Unsupervised, Reinforcement', 
-          color: 'from-cyan-500 to-cyan-600',
-          pinned: false,
-          rotation: randomRotation()
-        },
-        { 
-          id: 'note3', 
-          x: centerX + randomOffset(), 
-          y: centerY + randomOffset(), 
-          content: 'Важно\nКачество данных важнее алгоритма', 
-          color: 'from-green-500 to-green-600',
-          pinned: false,
-          rotation: randomRotation()
-        },
-        { 
-          id: 'note4', 
-          x: centerX + randomOffset(), 
-          y: centerY + randomOffset(), 
-          content: 'Применение\nРаспознавание, NLP, рекомендации', 
-          color: 'from-purple-500 to-purple-600',
-          pinned: false,
-          rotation: randomRotation()
-        },
-      ];
+      // Вычисляем оптимальный масштаб чтобы всё поместилось
+      const allYs = newNodes.map(n => n.y);
+      const allXs = newNodes.map(n => n.x);
+      const minY = Math.min(...allYs);
+      const maxY = Math.max(...allYs);
+      const minX = Math.min(...allXs);
+      const maxX = Math.max(...allXs);
+      
+      const contentWidth = maxX - minX + 200; // +200 для отступов и размера узлов
+      const contentHeight = maxY - minY + 150;
+      
+      const screenWidth = window.innerWidth - 80;
+      const screenHeight = window.innerHeight - 80;
+      
+      const scaleX = screenWidth / contentWidth;
+      const scaleY = screenHeight / contentHeight;
+      const optimalZoom = Math.min(scaleX, scaleY, 1); // Не больше 1
+      
+      setZoom(Math.max(optimalZoom, 0.2)); // Минимум 0.2 для лучшей видимости
+      
+      // Центрируем контент
+      const contentCenterX = (minX + maxX) / 2;
+      const contentCenterY = (minY + maxY) / 2;
+      const finalZoom = Math.max(optimalZoom, 0.2);
+      setPan({
+        x: window.innerWidth / 2 - contentCenterX * finalZoom,
+        y: window.innerHeight / 2 - contentCenterY * finalZoom
+      });
+    } else if (format === 'notes') {
+      // Располагаем заметки в сетке
+      const cols = 4; // Количество колонок
+      const noteWidth = 260;
+      const noteHeight = 180;
+      const gapX = 40;
+      const gapY = 40;
+      const startX = 200;
+      const startY = 150;
+      
+      // Цвета для заметок
+      const noteColors: Record<string, string> = {
+        blue: 'from-blue-500 to-blue-600',
+        cyan: 'from-cyan-500 to-cyan-600',
+        green: 'from-green-500 to-green-600',
+        purple: 'from-purple-500 to-purple-600',
+        pink: 'from-pink-500 to-pink-600',
+        orange: 'from-orange-500 to-orange-600'
+      };
+      
+      const defaultColors = ['from-blue-500 to-blue-600', 'from-cyan-500 to-cyan-600', 'from-green-500 to-green-600', 'from-purple-500 to-purple-600', 'from-pink-500 to-pink-600', 'from-orange-500 to-orange-600'];
+      
+      let newNodes: DraggableNode[] = [];
+      
+      if (aiData?.notes && Array.isArray(aiData.notes)) {
+        // Используем данные от ИИ
+        newNodes = aiData.notes.map((note: any, index: number) => {
+          const col = index % cols;
+          const row = Math.floor(index / cols);
+          return {
+            id: `note${index + 1}`,
+            x: startX + col * (noteWidth + gapX),
+            y: startY + row * (noteHeight + gapY),
+            content: `${note.title}\n${note.content}`,
+            color: noteColors[note.color] || defaultColors[index % defaultColors.length],
+            pinned: false,
+            rotation: 0
+          };
+        });
+      } else {
+        // Fallback данные
+        newNodes = [
+          { 
+            id: 'note1', 
+            x: startX,
+            y: startY, 
+            content: 'Основная тема\nКлючевые концепции и идеи', 
+            color: 'from-blue-500 to-blue-600',
+            pinned: false,
+            rotation: 0
+          },
+          { 
+            id: 'note2', 
+            x: startX + noteWidth + gapX,
+            y: startY, 
+            content: 'Важные детали\nДополнительная информация', 
+            color: 'from-cyan-500 to-cyan-600',
+            pinned: false,
+            rotation: 0
+          },
+          { 
+            id: 'note3', 
+            x: startX + 2 * (noteWidth + gapX),
+            y: startY, 
+            content: 'Заметка\nИнтересный факт или идея', 
+            color: 'from-green-500 to-green-600',
+            pinned: false,
+            rotation: 0
+          },
+          { 
+            id: 'note4', 
+            x: startX + 3 * (noteWidth + gapX),
+            y: startY, 
+            content: 'Применение\nПрактическое использование', 
+            color: 'from-purple-500 to-purple-600',
+            pinned: false,
+            rotation: 0
+          },
+        ];
+      }
+      
       setNodes(newNodes);
       setNodesAppearing(new Set(newNodes.map(n => n.id)));
       setTimeout(() => setNodesAppearing(new Set()), 300);
@@ -264,7 +417,7 @@ function ConverterResult() {
       setNodes([]);
       setNodesAppearing(new Set());
     }
-  }, [format]);
+  }, [format, aiData]);
 
   // Очищаем выделение скрытых узлов при изменении expandedNodes
   useEffect(() => {
@@ -368,110 +521,132 @@ function ConverterResult() {
   };
 
   useEffect(() => {
+    let lastUpdateTime = 0;
+    const throttleMs = 8; // ~120fps для плавности
+    
     const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (draggedNode) {
-        const newX = (e.clientX - dragOffset.x - pan.x) / zoom;
-        const newY = (e.clientY - dragOffset.y - pan.y) / zoom;
-        
-        // Если перетаскивается несколько выделенных элементов
-        if (selectedNodes.size > 1 && selectedNodes.has(draggedNode) && selectedNodesInitialPositions.size > 0) {
-          const draggedNodeInitial = selectedNodesInitialPositions.get(draggedNode);
-          if (draggedNodeInitial) {
-            // Вычисляем смещение от начальной позиции опорного элемента
-            const deltaX = newX - draggedNodeInitial.x;
-            const deltaY = newY - draggedNodeInitial.y;
-            
-            // Применяем то же смещение ко всем выделенным элементам (и их точкам соединения)
-            setNodes(prev => prev.map(node => {
-              if (selectedNodes.has(node.id) && !node.pinned) {
-                const initialPos = selectedNodesInitialPositions.get(node.id);
-                if (initialPos) {
-                  const updatedX = initialPos.x + deltaX;
-                  const updatedY = initialPos.y + deltaY;
-                  return {
-                    ...node,
-                    x: updatedX,
-                    y: updatedY,
-                    // Также двигаем точку соединения (используем сохранённые начальные позиции)
-                    junctionX: initialPos.junctionX !== undefined ? initialPos.junctionX + deltaX : undefined,
-                    junctionY: initialPos.junctionY !== undefined ? initialPos.junctionY + deltaY : undefined
-                  };
-                }
-              }
-              return node;
-            }));
-          }
-        } else if (singleDragInitialPos) {
-          // Обычное перетаскивание одного элемента
-          const deltaX = newX - singleDragInitialPos.x;
-          const deltaY = newY - singleDragInitialPos.y;
+      const now = performance.now();
+      if (now - lastUpdateTime < throttleMs) return;
+      lastUpdateTime = now;
+      
+      // Используем requestAnimationFrame для плавности
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      
+      animationFrameRef.current = requestAnimationFrame(() => {
+        if (draggedNode) {
+          const newX = (e.clientX - dragOffset.x - pan.x) / zoom;
+          const newY = (e.clientY - dragOffset.y - pan.y) / zoom;
           
-          setNodes(prev => prev.map(node => 
-            node.id === draggedNode 
-              ? { 
-                  ...node, 
-                  x: newX, 
-                  y: newY,
-                  // Также двигаем точку соединения (используем начальную позицию)
-                  junctionX: singleDragInitialPos.junctionX !== undefined ? singleDragInitialPos.junctionX + deltaX : undefined,
-                  junctionY: singleDragInitialPos.junctionY !== undefined ? singleDragInitialPos.junctionY + deltaY : undefined
-                }
-              : node
-          ));
-        }
-      } else if (draggedJunction) {
-        // Перетаскивание точки соединения
-        const rect = boardRef.current?.getBoundingClientRect();
-        if (rect) {
-          const newJunctionX = (e.clientX - rect.left - junctionDragOffset.x - pan.x) / zoom;
-          const newJunctionY = (e.clientY - rect.top - junctionDragOffset.y - pan.y) / zoom;
-          
-          setJunctionMoved(true); // Отмечаем что было перемещение
-          
-          // Если перетаскивается несколько выделенных точек
-          if (selectedJunctions.size > 1 && selectedJunctions.has(draggedJunction) && selectedJunctionsInitialPositions.size > 0) {
-            const draggedInitial = selectedJunctionsInitialPositions.get(draggedJunction);
-            if (draggedInitial) {
-              const deltaX = newJunctionX - draggedInitial.x;
-              const deltaY = newJunctionY - draggedInitial.y;
+          // Если перетаскивается несколько выделенных элементов
+          if (selectedNodes.size > 1 && selectedNodes.has(draggedNode) && selectedNodesInitialPositions.size > 0) {
+            const draggedNodeInitial = selectedNodesInitialPositions.get(draggedNode);
+            if (draggedNodeInitial) {
+              // Вычисляем смещение от начальной позиции опорного элемента
+              const deltaX = newX - draggedNodeInitial.x;
+              const deltaY = newY - draggedNodeInitial.y;
               
+              // Применяем то же смещение ко всем выделенным элементам (и их точкам соединения)
               setNodes(prev => prev.map(node => {
-                if (selectedJunctions.has(node.id) && node.junctionX !== undefined && node.junctionY !== undefined) {
-                  const initialPos = selectedJunctionsInitialPositions.get(node.id);
+                if (selectedNodes.has(node.id) && !node.pinned) {
+                  const initialPos = selectedNodesInitialPositions.get(node.id);
                   if (initialPos) {
+                    const updatedX = initialPos.x + deltaX;
+                    const updatedY = initialPos.y + deltaY;
                     return {
                       ...node,
-                      junctionX: initialPos.x + deltaX,
-                      junctionY: initialPos.y + deltaY
+                      x: updatedX,
+                      y: updatedY,
+                      // Также двигаем точку соединения (используем сохранённые начальные позиции)
+                      junctionX: initialPos.junctionX !== undefined ? initialPos.junctionX + deltaX : undefined,
+                      junctionY: initialPos.junctionY !== undefined ? initialPos.junctionY + deltaY : undefined
                     };
                   }
                 }
                 return node;
               }));
             }
-          } else {
-            // Обычное перетаскивание одной точки
+          } else if (singleDragInitialPos) {
+            // Обычное перетаскивание одного элемента
+            const deltaX = newX - singleDragInitialPos.x;
+            const deltaY = newY - singleDragInitialPos.y;
+            
             setNodes(prev => prev.map(node => 
-              node.id === draggedJunction
-                ? { ...node, junctionX: newJunctionX, junctionY: newJunctionY }
+              node.id === draggedNode 
+                ? { 
+                    ...node, 
+                    x: newX, 
+                    y: newY,
+                    // Также двигаем точку соединения (используем начальную позицию)
+                    junctionX: singleDragInitialPos.junctionX !== undefined ? singleDragInitialPos.junctionX + deltaX : undefined,
+                    junctionY: singleDragInitialPos.junctionY !== undefined ? singleDragInitialPos.junctionY + deltaY : undefined
+                  }
                 : node
             ));
           }
-        }
-      } else if (isPanning) {
-        setPan({
-          x: e.clientX - panStart.x,
-          y: e.clientY - panStart.y
-        });
-      } else if (isSelecting && selectionStart) {
-        const rect = boardRef.current?.getBoundingClientRect();
-        if (rect) {
-          setSelectionEnd({
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
+        } else if (draggedJunction) {
+          // Перетаскивание точки соединения
+          const rect = boardRef.current?.getBoundingClientRect();
+          if (rect) {
+            const newJunctionX = (e.clientX - rect.left - junctionDragOffset.x - pan.x) / zoom;
+            const newJunctionY = (e.clientY - rect.top - junctionDragOffset.y - pan.y) / zoom;
+            
+            // Проверяем порог движения (5 пикселей) перед установкой флага перемещения
+            if (junctionMouseStart) {
+              const dx = e.clientX - junctionMouseStart.x;
+              const dy = e.clientY - junctionMouseStart.y;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              if (distance > 5) {
+                setJunctionMoved(true); // Отмечаем что было реальное перемещение
+              }
+            }
+            
+            // Если перетаскивается несколько выделенных точек
+            if (selectedJunctions.size > 1 && selectedJunctions.has(draggedJunction) && selectedJunctionsInitialPositions.size > 0) {
+              const draggedInitial = selectedJunctionsInitialPositions.get(draggedJunction);
+              if (draggedInitial) {
+                const deltaX = newJunctionX - draggedInitial.x;
+                const deltaY = newJunctionY - draggedInitial.y;
+                
+                setNodes(prev => prev.map(node => {
+                  if (selectedJunctions.has(node.id) && node.junctionX !== undefined && node.junctionY !== undefined) {
+                    const initialPos = selectedJunctionsInitialPositions.get(node.id);
+                    if (initialPos) {
+                      return {
+                        ...node,
+                        junctionX: initialPos.x + deltaX,
+                        junctionY: initialPos.y + deltaY
+                      };
+                    }
+                  }
+                  return node;
+                }));
+              }
+            } else {
+              // Обычное перетаскивание одной точки
+              setNodes(prev => prev.map(node => 
+                node.id === draggedJunction
+                  ? { ...node, junctionX: newJunctionX, junctionY: newJunctionY }
+                  : node
+              ));
+            }
+          }
+        } else if (isPanning) {
+          setPan({
+            x: e.clientX - panStart.x,
+            y: e.clientY - panStart.y
           });
+        } else if (isSelecting && selectionStart) {
+          const rect = boardRef.current?.getBoundingClientRect();
+          if (rect) {
+            setSelectionEnd({
+              x: e.clientX - rect.left,
+              y: e.clientY - rect.top
+            });
+          }
         }
-      }
+      }); // закрываем requestAnimationFrame
     };
 
     const handleGlobalMouseUp = () => {
@@ -585,6 +760,7 @@ function ConverterResult() {
       setDraggedNode(null);
       setDraggedJunction(null);
       setJunctionMoved(false);
+      setJunctionMouseStart(null);
       setSingleDragInitialPos(null);
       setIsPanning(false);
       setIsSelecting(false);
@@ -607,7 +783,7 @@ function ConverterResult() {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [draggedNode, draggedJunction, isPanning, isSelecting, dragOffset, junctionDragOffset, pan, zoom, panStart, selectionStart, selectionEnd, nodes, format, selectedNodes, selectedNodesInitialPositions, selectedJunctions, selectedJunctionsInitialPositions, expandedNodes, singleDragInitialPos]);
+  }, [draggedNode, draggedJunction, isPanning, isSelecting, dragOffset, junctionDragOffset, pan, zoom, panStart, selectionStart, selectionEnd, nodes, format, selectedNodes, selectedNodesInitialPositions, selectedJunctions, selectedJunctionsInitialPositions, expandedNodes, singleDragInitialPos, junctionMouseStart]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (draggedNode || draggedJunction || isPanning || isSelecting) {
@@ -619,15 +795,30 @@ function ConverterResult() {
     setDraggedNode(null);
     setDraggedJunction(null);
     setJunctionMoved(false);
+    setJunctionMouseStart(null);
     setSingleDragInitialPos(null);
     setIsPanning(false);
   };
 
   const handleBoardMouseDown = (e: React.MouseEvent) => {
-    // Только левая кнопка мыши для выделения
-    if (e.button !== 0) return;
-    
     const target = e.target as HTMLElement;
+    
+    // Правая кнопка мыши - панорамирование
+    if (e.button === 2) {
+      e.preventDefault();
+      if (target === boardRef.current || target.classList.contains('board-area') || target.closest('.board-area')) {
+        setIsPanning(true);
+        setPanStart({
+          x: e.clientX - pan.x,
+          y: e.clientY - pan.y
+        });
+        setIsSelecting(false);
+      }
+      return;
+    }
+    
+    // Левая кнопка мыши - выделение
+    if (e.button !== 0) return;
     
     // Если клик на узле, не начинаем выделение
     if (target.closest('[data-node-id]')) {
@@ -653,26 +844,6 @@ function ConverterResult() {
       if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
         setSelectedNodes(new Set());
         setSelectedJunctions(new Set());
-      }
-    }
-  };
-
-  // Панорамирование правой кнопкой мыши
-  const handleBoardRightMouseDown = (e: React.MouseEvent) => {
-    if (e.button === 2) {
-      e.preventDefault();
-      const target = e.target as HTMLElement;
-      
-      if (target === boardRef.current || target.classList.contains('board-area') || target.closest('.board-area')) {
-        if (!target.closest('[data-node-id]') && target.tagName !== 'svg' && !target.closest('svg')) {
-          setIsPanning(true);
-          setPanStart({
-            x: e.clientX - pan.x,
-            y: e.clientY - pan.y
-          });
-          // Останавливаем выделение при панорамировании
-          setIsSelecting(false);
-        }
       }
     }
   };
@@ -721,14 +892,62 @@ function ConverterResult() {
       const thirdRowX = window.innerWidth * 0.48;
       const fourthRowX = window.innerWidth * 0.72;
       const centerY = window.innerHeight / 2;
-      const junctionOffset = 80;
-      const verticalSpacing = 180;
-      const thirdLevelSpacing = 50;
-      const fourthLevelSpacing = 35;
+      const junctionOffset = 100;
+      // Максимально компактные расстояния
+      const fourthLevelInnerSpacing = 45; // Внутри подгруппы 4-го уровня
+      const fourthLevelSubgroupSpacing = 50; // Между подгруппами 4-го уровня
+      const groupSpacing = 0; // Без пробелов между цветовыми группами
       
-      // Находим дочерние узлы (второй ряд)
-      const childNodes = nodes.filter(n => n.id.startsWith('node') && !n.id.includes('_')).sort((a, b) => {
-        return (a.y || 0) - (b.y || 0);
+      // Группы родителей
+      const parentIds = ['node1', 'node2', 'node3', 'node4'];
+      const nodesPerGroup = 3; // подгрупп в каждой цветовой группе
+      const nodesPerSubgroup = 2; // узлов 4-го уровня в подгруппе
+      
+      // Вычисляем позиции
+      const fourthLevelPositions: { [key: string]: number } = {};
+      const thirdLevelPositions: { [key: string]: number } = {};
+      const parentPositions: { [key: string]: number } = {};
+      
+      // Считаем общую высоту
+      const subgroupHeight = (nodesPerSubgroup - 1) * fourthLevelInnerSpacing;
+      const colorGroupHeight = nodesPerGroup * subgroupHeight + (nodesPerGroup - 1) * fourthLevelSubgroupSpacing;
+      const totalHeight = parentIds.length * colorGroupHeight + (parentIds.length - 1) * groupSpacing;
+      
+      let currentY = centerY - totalHeight / 2;
+      
+      parentIds.forEach((parentId, groupIndex) => {
+        const colorGroupStartY = currentY;
+        const thirdLevelYs: number[] = [];
+        
+        for (let i = 0; i < nodesPerGroup; i++) {
+          const thirdLevelId = `${parentId}_${i}`;
+          const subgroupStartY = currentY;
+          
+          // Узлы 4-го уровня
+          for (let j = 0; j < nodesPerSubgroup; j++) {
+            const fourthLevelId = `${thirdLevelId}_${j}`;
+            fourthLevelPositions[fourthLevelId] = currentY;
+            currentY += fourthLevelInnerSpacing;
+          }
+          
+          // Позиция 3-го уровня - центр подгруппы
+          const subgroupEndY = currentY - fourthLevelInnerSpacing;
+          thirdLevelPositions[thirdLevelId] = (subgroupStartY + subgroupEndY) / 2;
+          thirdLevelYs.push(thirdLevelPositions[thirdLevelId]);
+          
+          // Пробел между подгруппами
+          if (i < nodesPerGroup - 1) {
+            currentY += fourthLevelSubgroupSpacing - fourthLevelInnerSpacing;
+          }
+        }
+        
+        // Позиция родителя - центр всех детей
+        parentPositions[parentId] = (thirdLevelYs[0] + thirdLevelYs[thirdLevelYs.length - 1]) / 2;
+        
+        // Большой пробел между цветовыми группами
+        if (groupIndex < parentIds.length - 1) {
+          currentY += groupSpacing;
+        }
       });
       
       setNodes(prev => prev.map(node => {
@@ -737,51 +956,14 @@ function ConverterResult() {
         if (node.id === 'center') {
           return { ...node, x: firstRowX, y: centerY, junctionX: firstRowX + junctionOffset, junctionY: centerY };
         } else if (node.id.startsWith('node') && underscoreCount === 0) {
-          // Дочерние узлы второго ряда
-          const index = childNodes.findIndex(n => n.id === node.id);
-          if (index !== -1) {
-            const offset = (index - (childNodes.length - 1) / 2) * verticalSpacing;
-            const nodeY = centerY + offset;
-            return { ...node, x: secondRowX, y: nodeY, junctionX: secondRowX + junctionOffset, junctionY: nodeY };
-          }
+          const nodeY = parentPositions[node.id] || centerY;
+          return { ...node, x: secondRowX, y: nodeY, junctionX: secondRowX + junctionOffset, junctionY: nodeY };
         } else if (underscoreCount === 1) {
-          // Узлы третьего уровня
-          const parentId = node.id.split('_')[0];
-          const childIndex = parseInt(node.id.split('_')[1]);
-          const parentNodeInList = childNodes.find(n => n.id === parentId);
-          if (parentNodeInList) {
-            const parentIndex = childNodes.indexOf(parentNodeInList);
-            const parentY = centerY + (parentIndex - (childNodes.length - 1) / 2) * verticalSpacing;
-            
-            const numSiblings = 3;
-            const startOffset = -(numSiblings - 1) * thirdLevelSpacing / 2;
-            const nodeY = parentY + startOffset + childIndex * thirdLevelSpacing;
-            
-            return { ...node, x: thirdRowX, y: nodeY, junctionX: thirdRowX + junctionOffset, junctionY: nodeY };
-          }
+          const nodeY = thirdLevelPositions[node.id];
+          return { ...node, x: thirdRowX, y: nodeY, junctionX: thirdRowX + junctionOffset, junctionY: nodeY };
         } else if (underscoreCount === 2) {
-          // Узлы четвёртого уровня
-          const parts = node.id.split('_');
-          const level3ParentId = `${parts[0]}_${parts[1]}`;
-          const childIndex = parseInt(parts[2]);
-          const level2ParentId = parts[0];
-          
-          const level2ParentInList = childNodes.find(n => n.id === level2ParentId);
-          if (level2ParentInList) {
-            const parentIndex = childNodes.indexOf(level2ParentInList);
-            const level2ParentY = centerY + (parentIndex - (childNodes.length - 1) / 2) * verticalSpacing;
-            
-            const level3Index = parseInt(parts[1]);
-            const numLevel3Siblings = 3;
-            const level3StartOffset = -(numLevel3Siblings - 1) * thirdLevelSpacing / 2;
-            const level3Y = level2ParentY + level3StartOffset + level3Index * thirdLevelSpacing;
-            
-            const numSiblings = 2;
-            const startOffset = -(numSiblings - 1) * fourthLevelSpacing / 2;
-            const nodeY = level3Y + startOffset + childIndex * fourthLevelSpacing;
-            
-            return { ...node, x: fourthRowX, y: nodeY };
-          }
+          const nodeY = fourthLevelPositions[node.id];
+          return { ...node, x: fourthRowX, y: nodeY };
         }
         return node;
       }));
@@ -791,6 +973,233 @@ function ConverterResult() {
   const handleBack = () => {
     window.location.hash = '#converter';
   };
+
+  // Функции для скачивания
+  const downloadAsText = () => {
+    let content = '';
+    
+    if (format === 'summary' && aiData) {
+      content = `${aiData.title || 'Конспект'}\n\n`;
+      if (aiData.sections) {
+        aiData.sections.forEach((section: any, idx: number) => {
+          content += `${idx + 1}. ${section.heading}\n`;
+          content += `${section.content}\n`;
+          if (section.keyPoints) {
+            section.keyPoints.forEach((point: string) => {
+              content += `  • ${point}\n`;
+            });
+          }
+          content += '\n';
+        });
+      }
+      if (aiData.conclusion) {
+        content += `Заключение:\n${aiData.conclusion}`;
+      }
+    } else if (format === 'cards' && aiData?.cards) {
+      content = 'Карточки для запоминания\n\n';
+      aiData.cards.forEach((card: any, idx: number) => {
+        content += `Карточка ${idx + 1}\n`;
+        content += `Вопрос: ${card.question}\n`;
+        content += `Ответ: ${card.answer}\n\n`;
+      });
+    } else if (format === 'notes' || format === 'mindmap') {
+      content = nodes.map(node => node.content).join('\n\n');
+    }
+    
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${format}_result.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setShowDownloadMenu(false);
+  };
+
+  const downloadAsJSON = () => {
+    const data = {
+      format,
+      data: aiData,
+      nodes: format === 'mindmap' || format === 'notes' ? nodes : undefined
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${format}_result.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setShowDownloadMenu(false);
+  };
+
+  const downloadAsMarkdown = () => {
+    let content = '';
+    
+    if (format === 'summary' && aiData) {
+      content = `# ${aiData.title || 'Конспект'}\n\n`;
+      if (aiData.sections) {
+        aiData.sections.forEach((section: any, idx: number) => {
+          content += `## ${idx + 1}. ${section.heading}\n\n`;
+          content += `${section.content}\n\n`;
+          if (section.keyPoints) {
+            content += `**Ключевые моменты:**\n`;
+            section.keyPoints.forEach((point: string) => {
+              content += `- ${point}\n`;
+            });
+            content += '\n';
+          }
+        });
+      }
+      if (aiData.conclusion) {
+        content += `## Заключение\n\n${aiData.conclusion}`;
+      }
+    } else if (format === 'cards' && aiData?.cards) {
+      content = '# Карточки для запоминания\n\n';
+      aiData.cards.forEach((card: any, idx: number) => {
+        content += `### Карточка ${idx + 1}\n\n`;
+        content += `**Вопрос:** ${card.question}\n\n`;
+        content += `**Ответ:** ${card.answer}\n\n---\n\n`;
+      });
+    } else if (format === 'mindmap') {
+      content = '# Mind Map\n\n';
+      const centerNode = nodes.find(n => n.id === 'center');
+      if (centerNode) {
+        content += `## ${centerNode.content}\n\n`;
+      }
+      nodes.filter(n => n.id !== 'center' && !n.id.includes('_')).forEach(node => {
+        content += `### ${node.content}\n\n`;
+      });
+    } else if (format === 'notes') {
+      content = '# Заметки\n\n';
+      nodes.forEach((node, idx) => {
+        content += `## Заметка ${idx + 1}\n\n${node.content}\n\n`;
+      });
+    }
+    
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${format}_result.md`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setShowDownloadMenu(false);
+  };
+
+  const downloadAsHTML = () => {
+    let htmlContent = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${format === 'summary' ? 'Конспект' : format === 'cards' ? 'Карточки' : format === 'mindmap' ? 'Mind Map' : 'Заметки'}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+    h1 { color: #1e3a8a; }
+    h2 { color: #3b82f6; }
+    .card { background: white; border-radius: 12px; padding: 20px; margin: 15px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .question { font-weight: bold; color: #1f2937; margin-bottom: 10px; }
+    .answer { color: #4b5563; }
+    .note { background: linear-gradient(135deg, #3b82f6, #06b6d4); color: white; padding: 20px; border-radius: 8px; margin: 10px 0; }
+    ul { padding-left: 20px; }
+    li { margin: 5px 0; }
+  </style>
+</head>
+<body>`;
+
+    if (format === 'summary' && aiData) {
+      htmlContent += `<h1>${aiData.title || 'Конспект'}</h1>`;
+      if (aiData.sections) {
+        aiData.sections.forEach((section: any, idx: number) => {
+          htmlContent += `<div class="card"><h2>${idx + 1}. ${section.heading}</h2><p>${section.content}</p>`;
+          if (section.keyPoints) {
+            htmlContent += '<ul>';
+            section.keyPoints.forEach((point: string) => {
+              htmlContent += `<li>${point}</li>`;
+            });
+            htmlContent += '</ul>';
+          }
+          htmlContent += '</div>';
+        });
+      }
+      if (aiData.conclusion) {
+        htmlContent += `<div class="card"><h2>Заключение</h2><p>${aiData.conclusion}</p></div>`;
+      }
+    } else if (format === 'cards' && aiData?.cards) {
+      htmlContent += '<h1>Карточки для запоминания</h1>';
+      aiData.cards.forEach((card: any, idx: number) => {
+        htmlContent += `<div class="card"><p class="question">Вопрос ${idx + 1}: ${card.question}</p><p class="answer">Ответ: ${card.answer}</p></div>`;
+      });
+    } else if (format === 'notes') {
+      htmlContent += '<h1>Заметки</h1>';
+      nodes.forEach((node, idx) => {
+        htmlContent += `<div class="note"><strong>Заметка ${idx + 1}</strong><br>${node.content.replace(/\n/g, '<br>')}</div>`;
+      });
+    }
+
+    htmlContent += '</body></html>';
+    
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${format}_result.html`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setShowDownloadMenu(false);
+  };
+
+  const copyToClipboard = () => {
+    let content = '';
+    
+    if (format === 'summary' && aiData) {
+      content = `${aiData.title || 'Конспект'}\n\n`;
+      if (aiData.sections) {
+        aiData.sections.forEach((section: any, idx: number) => {
+          content += `${idx + 1}. ${section.heading}\n${section.content}\n`;
+          if (section.keyPoints) {
+            section.keyPoints.forEach((point: string) => {
+              content += `• ${point}\n`;
+            });
+          }
+          content += '\n';
+        });
+      }
+    } else if (format === 'cards' && aiData?.cards) {
+      aiData.cards.forEach((card: any, idx: number) => {
+        content += `Вопрос ${idx + 1}: ${card.question}\nОтвет: ${card.answer}\n\n`;
+      });
+    } else {
+      content = nodes.map(node => node.content).join('\n\n');
+    }
+    
+    navigator.clipboard.writeText(content);
+    setShowDownloadMenu(false);
+    alert('Скопировано в буфер обмена!');
+  };
+
+  const handlePrint = () => {
+    window.print();
+    setShowDownloadMenu(false);
+  };
+
+  // Закрытие меню скачивания при клике вне
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (downloadMenuRef.current && !downloadMenuRef.current.contains(e.target as Node)) {
+        setShowDownloadMenu(false);
+      }
+    };
+    
+    if (showDownloadMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDownloadMenu]);
 
   // Обработчик правого клика
   const handleContextMenu = (e: React.MouseEvent, nodeId: string | null = null) => {
@@ -948,7 +1357,78 @@ function ConverterResult() {
                 {format === 'mindmap' ? 'Визуальная карта знаний' : 'Краткие заметки'}
               </h1>
             </div>
-            <div className="w-32"></div> {/* Spacer for centering */}
+            
+            {/* Download Button for Fullscreen */}
+            <div className="relative" ref={downloadMenuRef}>
+              <button
+                onClick={() => setShowDownloadMenu(!showDownloadMenu)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all font-medium shadow-md hover:shadow-lg"
+              >
+                <Download className="w-4 h-4" />
+                Скачать
+                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showDownloadMenu ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {showDownloadMenu && (
+                <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-50">
+                  <div className="p-2">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 py-2">Форматы</p>
+                    
+                    <button
+                      onClick={downloadAsText}
+                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-blue-50 rounded-lg transition-colors text-left group"
+                    >
+                      <FileText className="w-5 h-5 text-gray-500 group-hover:text-blue-600" />
+                      <div>
+                        <p className="font-medium text-gray-800 text-sm">Текст (.txt)</p>
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={downloadAsMarkdown}
+                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-blue-50 rounded-lg transition-colors text-left group"
+                    >
+                      <File className="w-5 h-5 text-gray-500 group-hover:text-blue-600" />
+                      <div>
+                        <p className="font-medium text-gray-800 text-sm">Markdown (.md)</p>
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={downloadAsHTML}
+                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-blue-50 rounded-lg transition-colors text-left group"
+                    >
+                      <FileImage className="w-5 h-5 text-gray-500 group-hover:text-blue-600" />
+                      <div>
+                        <p className="font-medium text-gray-800 text-sm">HTML (.html)</p>
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={downloadAsJSON}
+                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-blue-50 rounded-lg transition-colors text-left group"
+                    >
+                      <File className="w-5 h-5 text-gray-500 group-hover:text-blue-600" />
+                      <div>
+                        <p className="font-medium text-gray-800 text-sm">JSON (.json)</p>
+                      </div>
+                    </button>
+                    
+                    <div className="border-t border-gray-100 my-1"></div>
+                    
+                    <button
+                      onClick={copyToClipboard}
+                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-green-50 rounded-lg transition-colors text-left group"
+                    >
+                      <Copy className="w-5 h-5 text-gray-500 group-hover:text-green-600" />
+                      <div>
+                        <p className="font-medium text-gray-800 text-sm">Копировать</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Fullscreen Board */}
@@ -1052,7 +1532,7 @@ function ConverterResult() {
             {/* Interactive Board - Fullscreen */}
             <div
               ref={boardRef}
-              className={`board-area absolute inset-0 w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 transition-all duration-200 ${isSelecting ? 'cursor-crosshair' : 'cursor-default'}`}
+              className={`board-area absolute inset-0 w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 transition-all duration-200 ${isPanning ? 'cursor-grabbing' : isSelecting ? 'cursor-crosshair' : 'cursor-default'}`}
               onMouseDown={handleBoardMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -1212,14 +1692,16 @@ function ConverterResult() {
                           transform: 'translate(-50%, -50%)',
                           opacity: isNodeVisible ? 1 : 0,
                           pointerEvents: isNodeVisible ? 'auto' : 'none',
-                          transition: draggedJunction === node.id ? 'none' : 'opacity 0.3s ease, left 0.1s ease, top 0.1s ease',
+                          willChange: draggedJunction === node.id ? 'left, top' : 'auto',
+                          transition: draggedJunction === node.id ? 'none' : 'opacity 0.3s ease, left 0.08s ease-out, top 0.08s ease-out',
                         }}
                         onMouseDown={(e) => {
                           if (e.button !== 0) return; // Только левая кнопка
                           e.stopPropagation();
                           e.preventDefault();
-                          // Сбрасываем флаг перемещения
+                          // Сбрасываем флаг перемещения и сохраняем начальную позицию
                           setJunctionMoved(false);
+                          setJunctionMouseStart({ x: e.clientX, y: e.clientY });
                           // Начинаем перетаскивание точки
                           const rect = boardRef.current?.getBoundingClientRect();
                           if (rect && node.junctionX !== undefined && node.junctionY !== undefined) {
@@ -1254,6 +1736,10 @@ function ConverterResult() {
                               return newSet;
                             });
                           }
+                          // Сразу сбрасываем состояние нажатия
+                          setDraggedJunction(null);
+                          setJunctionMoved(false);
+                          setJunctionMouseStart(null);
                         }}
                       >
                         <div 
@@ -1337,18 +1823,21 @@ function ConverterResult() {
                     return (
                     <div
                       key={node.id}
-                      className={`absolute bg-gradient-to-br ${node.color} text-white rounded-xl p-4 shadow-lg ${node.pinned ? 'cursor-default' : 'cursor-move'} hover:shadow-xl select-none ${editingNode === node.id ? 'ring-2 ring-yellow-400' : ''} ${draggedNode === node.id ? 'scale-105' : 'scale-100'} ${nodesAppearing.has(node.id) ? 'node-appear' : ''} ${node.pinned ? 'ring-2 ring-yellow-300' : ''} ${selectedNodes.has(node.id) ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
+                      className={`absolute bg-gradient-to-br ${node.color} text-white rounded-lg p-2 shadow-lg ${node.pinned ? 'cursor-default' : 'cursor-move'} hover:shadow-xl select-none ${editingNode === node.id ? 'ring-2 ring-yellow-400' : ''} ${draggedNode === node.id ? 'scale-105' : 'scale-100'} ${nodesAppearing.has(node.id) ? 'node-appear' : ''} ${node.pinned ? 'ring-2 ring-yellow-300' : ''} ${selectedNodes.has(node.id) ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
                       style={{
                         left: node.x * zoom + pan.x,
                         top: node.y * zoom + pan.y,
                         transform: `translate(-50%, -50%) scale(${isVisible ? 1 : 0.8})`,
-                        minWidth: '150px',
+                        minWidth: '100px',
+                        maxWidth: '140px',
+                        fontSize: '12px',
                         zIndex: draggedNode === node.id ? 20 : (node.pinned ? 15 : (selectedNodes.has(node.id) ? 12 : 10)),
                         opacity: isVisible ? 1 : 0,
                         pointerEvents: isVisible ? 'auto' : 'none',
+                        willChange: draggedNode === node.id ? 'left, top, transform' : 'auto',
                         transition: (draggedNode === node.id || selectedNodes.has(node.id)) 
                           ? 'opacity 0.3s ease, transform 0.3s ease' 
-                          : 'left 0.1s cubic-bezier(0.4, 0, 0.2, 1), top 0.1s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s ease, box-shadow 0.2s ease, opacity 0.3s ease'
+                          : 'left 0.08s ease-out, top 0.08s ease-out, transform 0.2s ease-out, box-shadow 0.2s ease, opacity 0.3s ease'
                       }}
                       onMouseDown={(e) => isVisible && handleMouseDown(e, node.id)}
                       onContextMenu={(e) => isVisible && handleContextMenu(e, node.id)}
@@ -1376,15 +1865,11 @@ function ConverterResult() {
                         </div>
                       ) : (
                         <>
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <Move className="w-4 h-4 opacity-70" />
-                              <span className="text-xs opacity-80">Перетащите</span>
+                          {node.pinned && (
+                            <div className="flex justify-end mb-1">
+                              <Pin className="w-3 h-3 text-yellow-300 fill-yellow-300" />
                             </div>
-                            {node.pinned && (
-                              <Pin className="w-4 h-4 text-yellow-300 fill-yellow-300" />
-                            )}
-                          </div>
+                          )}
                           <p className="font-bold text-sm whitespace-pre-line text-center">{node.content}</p>
                         </>
                       )}
@@ -1411,8 +1896,8 @@ function ConverterResult() {
 
                    {/* Draggable Notes - Sticky Notes Style */}
                    {nodes.map((node, index) => {
-                     // Используем сохраненный угол поворота или случайный для новых элементов
-                     const rotation = node.pinned ? 0 : (draggedNode === node.id ? 0 : (node.rotation || (Math.random() - 0.5) * 8));
+                     // Используем сохраненный угол поворота
+                     const rotation = node.rotation || 0;
                      
                      return (
                        <div
@@ -1427,7 +1912,8 @@ function ConverterResult() {
                            maxWidth: '280px',
                            zIndex: draggedNode === node.id ? 20 : (node.pinned ? 15 : (selectedNodes.has(node.id) ? 12 : 10)),
                            filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15)) drop-shadow(0 10px 20px rgba(0, 0, 0, 0.1))',
-                           transition: draggedNode === node.id || selectedNodes.has(node.id) ? 'none' : 'left 0.15s cubic-bezier(0.4, 0, 0.2, 1), top 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, filter 0.2s ease'
+                           willChange: draggedNode === node.id ? 'left, top, transform' : 'auto',
+                           transition: draggedNode === node.id || selectedNodes.has(node.id) ? 'none' : 'left 0.1s ease-out, top 0.1s ease-out, transform 0.15s ease-out, box-shadow 0.2s ease, filter 0.2s ease'
                          }}
                          onMouseDown={(e) => handleMouseDown(e, node.id)}
                          onContextMenu={(e) => handleContextMenu(e, node.id)}
@@ -1455,15 +1941,11 @@ function ConverterResult() {
                            </div>
                          ) : (
                            <>
-                             <div className="flex items-center justify-between mb-2 opacity-80">
-                               <div className="flex items-center gap-2">
-                                 <Move className="w-4 h-4" />
-                                 <span className="text-xs">Перетащите</span>
+                             {node.pinned && (
+                               <div className="flex justify-end mb-1">
+                                 <Pin className="w-3 h-3 text-yellow-300 fill-yellow-300" />
                                </div>
-                               {node.pinned && (
-                                 <Pin className="w-4 h-4 text-yellow-300 fill-yellow-300" />
-                               )}
-                             </div>
+                             )}
                              <p className="font-semibold text-sm whitespace-pre-line leading-relaxed">{node.content}</p>
                            </>
                          )}
@@ -1603,92 +2085,174 @@ function ConverterResult() {
               {format === 'summary' && (
                 <div className="space-y-6">
                   <div>
-                    <h4 className="font-bold text-gray-800 mb-6 text-2xl">📝 Конспект: Основы машинного обучения</h4>
+                    <h4 className="font-bold text-gray-800 mb-6 text-2xl">📝 {aiData?.title || 'Конспект'}</h4>
                     <div className="space-y-5">
-                      <div className="bg-white rounded-xl p-6 border-l-4 border-blue-500 shadow-sm hover:shadow-md transition-shadow">
-                        <p className="font-bold text-gray-800 mb-3 text-lg">1. Определение</p>
-                        <p className="text-base text-gray-700 leading-relaxed">Машинное обучение — это подраздел искусственного интеллекта, который позволяет системам автоматически обучаться и улучшаться на основе опыта без явного программирования.</p>
-                      </div>
-                      <div className="bg-white rounded-xl p-6 border-l-4 border-cyan-500 shadow-sm hover:shadow-md transition-shadow">
-                        <p className="font-bold text-gray-800 mb-3 text-lg">2. Основные типы</p>
-                        <ul className="text-base text-gray-700 space-y-2 ml-6 list-disc leading-relaxed">
-                          <li>Обучение с учителем (Supervised Learning) — использование размеченных данных для обучения модели</li>
-                          <li>Обучение без учителя (Unsupervised Learning) — поиск паттернов в неразмеченных данных</li>
-                          <li>Обучение с подкреплением (Reinforcement Learning) — обучение через взаимодействие со средой</li>
-                        </ul>
-                      </div>
-                      <div className="bg-white rounded-xl p-6 border-l-4 border-green-500 shadow-sm hover:shadow-md transition-shadow">
-                        <p className="font-bold text-gray-800 mb-3 text-lg">3. Ключевые выводы</p>
-                        <ul className="text-base text-gray-700 space-y-2 ml-6 list-disc leading-relaxed">
-                          <li>ML требует больших объемов качественных данных для эффективной работы</li>
-                          <li>Выбор правильного алгоритма критичен для успеха проекта</li>
-                          <li>Регуляризация помогает избежать переобучения и улучшить обобщающую способность модели</li>
-                        </ul>
-                      </div>
+                      {aiData?.sections ? (
+                        aiData.sections.map((section: any, index: number) => {
+                          const colors = ['blue', 'cyan', 'green', 'purple', 'pink', 'orange'];
+                          const color = colors[index % colors.length];
+                          return (
+                            <div key={index} className={`bg-white rounded-xl p-6 border-l-4 border-${color}-500 shadow-sm hover:shadow-md transition-shadow`}>
+                              <p className="font-bold text-gray-800 mb-3 text-lg">{index + 1}. {section.heading}</p>
+                              <p className="text-base text-gray-700 leading-relaxed mb-3">{section.content}</p>
+                              {section.keyPoints && section.keyPoints.length > 0 && (
+                                <ul className="text-base text-gray-700 space-y-2 ml-6 list-disc leading-relaxed">
+                                  {section.keyPoints.map((point: string, idx: number) => (
+                                    <li key={idx}>{point}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="bg-white rounded-xl p-6 border-l-4 border-blue-500 shadow-sm">
+                          <p className="text-gray-600">Загрузка данных...</p>
+                        </div>
+                      )}
+                      {aiData?.conclusion && (
+                        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-6 border border-blue-200">
+                          <p className="font-bold text-gray-800 mb-2 text-lg">📌 Заключение</p>
+                          <p className="text-base text-gray-700 leading-relaxed">{aiData.conclusion}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               )}
               {format === 'cards' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-white rounded-xl p-6 border-2 border-blue-300 shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]">
-                    <div className="flex items-start justify-between mb-4">
-                      <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full">Карточка 1</span>
+                  {aiData?.cards ? (
+                    aiData.cards.map((card: any, index: number) => {
+                      const colors = ['blue', 'cyan', 'green', 'purple', 'pink', 'orange'];
+                      const color = colors[index % colors.length];
+                      return (
+                        <div key={index} className={`bg-white rounded-xl p-6 border-2 border-${color}-300 shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]`}>
+                          <div className="flex items-start justify-between mb-4">
+                            <span className={`text-sm font-semibold text-${color}-600 bg-${color}-50 px-3 py-1.5 rounded-full`}>
+                              Карточка {index + 1}
+                            </span>
+                          </div>
+                          <p className="font-bold text-gray-800 mb-3 text-lg">Вопрос:</p>
+                          <p className="text-base text-gray-700 mb-4 leading-relaxed">{card.question}</p>
+                          <div className="border-t-2 border-gray-200 pt-4">
+                            <p className="font-bold text-gray-800 mb-3 text-lg">Ответ:</p>
+                            <p className="text-base text-gray-600 leading-relaxed">{card.answer}</p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="col-span-2 bg-white rounded-xl p-6 border border-gray-200">
+                      <p className="text-gray-600 text-center">Загрузка карточек...</p>
                     </div>
-                    <p className="font-bold text-gray-800 mb-3 text-lg">Вопрос:</p>
-                    <p className="text-base text-gray-700 mb-4 leading-relaxed">Что такое машинное обучение?</p>
-                    <div className="border-t-2 border-gray-200 pt-4">
-                      <p className="font-bold text-gray-800 mb-3 text-lg">Ответ:</p>
-                      <p className="text-base text-gray-600 leading-relaxed">Подраздел искусственного интеллекта, позволяющий системам автоматически обучаться на основе данных без явного программирования.</p>
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-xl p-6 border-2 border-cyan-300 shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]">
-                    <div className="flex items-start justify-between mb-4">
-                      <span className="text-sm font-semibold text-cyan-600 bg-cyan-50 px-3 py-1.5 rounded-full">Карточка 2</span>
-                    </div>
-                    <p className="font-bold text-gray-800 mb-3 text-lg">Вопрос:</p>
-                    <p className="text-base text-gray-700 mb-4 leading-relaxed">Назовите три типа машинного обучения</p>
-                    <div className="border-t-2 border-gray-200 pt-4">
-                      <p className="font-bold text-gray-800 mb-3 text-lg">Ответ:</p>
-                      <ul className="text-base text-gray-600 space-y-2 ml-5 list-disc leading-relaxed">
-                        <li>Обучение с учителем (Supervised Learning)</li>
-                        <li>Обучение без учителя (Unsupervised Learning)</li>
-                        <li>Обучение с подкреплением (Reinforcement Learning)</li>
-                      </ul>
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-xl p-6 border-2 border-green-300 shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]">
-                    <div className="flex items-start justify-between mb-4">
-                      <span className="text-sm font-semibold text-green-600 bg-green-50 px-3 py-1.5 rounded-full">Карточка 3</span>
-                    </div>
-                    <p className="font-bold text-gray-800 mb-3 text-lg">Вопрос:</p>
-                    <p className="text-base text-gray-700 mb-4 leading-relaxed">Что такое переобучение (overfitting)?</p>
-                    <div className="border-t-2 border-gray-200 pt-4">
-                      <p className="font-bold text-gray-800 mb-3 text-lg">Ответ:</p>
-                      <p className="text-base text-gray-600 leading-relaxed">Явление, когда модель слишком хорошо запоминает обучающие данные и плохо обобщается на новые данные.</p>
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-xl p-6 border-2 border-purple-300 shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]">
-                    <div className="flex items-start justify-between mb-4">
-                      <span className="text-sm font-semibold text-purple-600 bg-purple-50 px-3 py-1.5 rounded-full">Карточка 4</span>
-                    </div>
-                    <p className="font-bold text-gray-800 mb-3 text-lg">Вопрос:</p>
-                    <p className="text-base text-gray-700 mb-4 leading-relaxed">Что такое регуляризация?</p>
-                    <div className="border-t-2 border-gray-200 pt-4">
-                      <p className="font-bold text-gray-800 mb-3 text-lg">Ответ:</p>
-                      <p className="text-base text-gray-600 leading-relaxed">Техника, используемая для предотвращения переобучения путем добавления штрафа за сложность модели.</p>
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
                 </div>
 
                 {/* Actions */}
                 <div className="mt-8 flex flex-col sm:flex-row gap-4">
-                  <button className="flex-1 px-8 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:bg-gradient-to-r hover:from-blue-700 hover:to-cyan-700 rounded-xl font-semibold text-lg flex items-center justify-center gap-3 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105">
-                    <Download className="w-6 h-6" />
-                    Скачать результат
-                  </button>
+                  <div className="relative flex-1" ref={downloadMenuRef}>
+                    <button 
+                      onClick={() => setShowDownloadMenu(!showDownloadMenu)}
+                      className="w-full px-8 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:from-blue-700 hover:to-cyan-700 rounded-xl font-semibold text-lg flex items-center justify-center gap-3 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
+                    >
+                      <Download className="w-6 h-6" />
+                      Скачать результат
+                      <ChevronDown className={`w-5 h-5 transition-transform duration-200 ${showDownloadMenu ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {showDownloadMenu && (
+                      <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                        <div className="p-2">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 py-2">Форматы файлов</p>
+                          
+                          <button
+                            onClick={downloadAsText}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 rounded-lg transition-colors text-left group"
+                          >
+                            <div className="w-10 h-10 bg-gray-100 group-hover:bg-blue-100 rounded-lg flex items-center justify-center transition-colors">
+                              <FileText className="w-5 h-5 text-gray-600 group-hover:text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-800">Текстовый файл</p>
+                              <p className="text-xs text-gray-500">.txt — простой текст</p>
+                            </div>
+                          </button>
+                          
+                          <button
+                            onClick={downloadAsMarkdown}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 rounded-lg transition-colors text-left group"
+                          >
+                            <div className="w-10 h-10 bg-gray-100 group-hover:bg-blue-100 rounded-lg flex items-center justify-center transition-colors">
+                              <File className="w-5 h-5 text-gray-600 group-hover:text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-800">Markdown</p>
+                              <p className="text-xs text-gray-500">.md — форматированный текст</p>
+                            </div>
+                          </button>
+                          
+                          <button
+                            onClick={downloadAsHTML}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 rounded-lg transition-colors text-left group"
+                          >
+                            <div className="w-10 h-10 bg-gray-100 group-hover:bg-blue-100 rounded-lg flex items-center justify-center transition-colors">
+                              <FileImage className="w-5 h-5 text-gray-600 group-hover:text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-800">HTML страница</p>
+                              <p className="text-xs text-gray-500">.html — веб-страница</p>
+                            </div>
+                          </button>
+                          
+                          <button
+                            onClick={downloadAsJSON}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 rounded-lg transition-colors text-left group"
+                          >
+                            <div className="w-10 h-10 bg-gray-100 group-hover:bg-blue-100 rounded-lg flex items-center justify-center transition-colors">
+                              <File className="w-5 h-5 text-gray-600 group-hover:text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-800">JSON данные</p>
+                              <p className="text-xs text-gray-500">.json — структурированные данные</p>
+                            </div>
+                          </button>
+                          
+                          <div className="border-t border-gray-100 my-2"></div>
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 py-2">Другие действия</p>
+                          
+                          <button
+                            onClick={copyToClipboard}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-green-50 rounded-lg transition-colors text-left group"
+                          >
+                            <div className="w-10 h-10 bg-gray-100 group-hover:bg-green-100 rounded-lg flex items-center justify-center transition-colors">
+                              <Copy className="w-5 h-5 text-gray-600 group-hover:text-green-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-800">Копировать текст</p>
+                              <p className="text-xs text-gray-500">В буфер обмена</p>
+                            </div>
+                          </button>
+                          
+                          <button
+                            onClick={handlePrint}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 rounded-lg transition-colors text-left group"
+                          >
+                            <div className="w-10 h-10 bg-gray-100 group-hover:bg-purple-100 rounded-lg flex items-center justify-center transition-colors">
+                              <Printer className="w-5 h-5 text-gray-600 group-hover:text-purple-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-800">Печать</p>
+                              <p className="text-xs text-gray-500">Отправить на принтер</p>
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
                   <button
                     onClick={handleBack}
                     className="px-8 py-4 bg-white/60 backdrop-blur-md border-2 border-gray-300 text-gray-700 hover:bg-white/80 rounded-xl font-semibold text-lg transition-all duration-300"

@@ -1,14 +1,17 @@
 import { Mail, Phone, MapPin, Linkedin, Twitter, Facebook } from 'lucide-react';
+import { useLanguage } from '../i18n';
 
 function Footer() {
-  const sections = [
+  const { t, language } = useLanguage();
+  
+  const sections = language === 'ru' ? [
     {
       title: 'О платформе',
       links: ['О нас', 'Миссия', 'Команда', 'Карьера', 'Новости']
     },
     {
-      title: 'Контакты',
-      links: ['support@smartstudent.ai', '+7 (727) 123-45-67', 'Алматы, ул. Абая, 1', 'Обратная связь']
+      title: t.footer.contacts,
+      links: ['support@smartstudent.ai', '+7 (727) 123-45-67', t.footer.addressValue, 'Обратная связь']
     },
     {
       title: 'Партнёры',
@@ -21,6 +24,27 @@ function Footer() {
     {
       title: 'Документы',
       links: ['Пользовательское соглашение', 'Политика конфиденциальности', 'Правила использования', 'FAQ']
+    }
+  ] : [
+    {
+      title: 'About Platform',
+      links: ['About Us', 'Mission', 'Team', 'Careers', 'News']
+    },
+    {
+      title: t.footer.contacts,
+      links: ['support@smartstudent.ai', '+7 (727) 123-45-67', t.footer.addressValue, 'Feedback']
+    },
+    {
+      title: 'Partners',
+      links: ['Partner Universities', 'Corporate Clients', 'Become a Partner', 'Integrations']
+    },
+    {
+      title: 'Universities',
+      links: ['University Catalog', 'Rankings', 'Study Programs', 'Scholarships']
+    },
+    {
+      title: 'Legal',
+      links: ['Terms of Service', 'Privacy Policy', 'Usage Rules', 'FAQ']
     }
   ];
 
@@ -62,7 +86,7 @@ function Footer() {
               <div className="text-3xl font-bold mb-2 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
                 SmartStudentAI
               </div>
-              <p className="text-gray-400 text-sm">© 2025 SmartStudentAI. Все права защищены.</p>
+              <p className="text-gray-400 text-sm">© 2025 SmartStudentAI. {t.footer.rights}</p>
             </div>
 
             <div className="flex gap-4">
@@ -84,10 +108,9 @@ function Footer() {
           </div>
 
           <div className="mt-8 flex flex-wrap justify-center gap-6 text-sm text-gray-500">
-            
-            <span>Образовательная платформа</span>
+            <span>{language === 'ru' ? 'Образовательная платформа' : 'Educational Platform'}</span>
             <span>•</span>
-            <span>Казахстан, 2025</span>
+            <span>{language === 'ru' ? 'Казахстан, 2025' : 'Kazakhstan, 2025'}</span>
           </div>
         </div>
       </div>

@@ -1,7 +1,9 @@
 import { Brain, GraduationCap, Repeat, User } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import { useLanguage } from '../i18n';
 
 function Services() {
+  const { t } = useLanguage();
   const [visibleElements, setVisibleElements] = useState<Set<number>>(new Set());
   const sectionRef = useRef<HTMLElement>(null);
   const cardRefs = useRef<(HTMLDivElement | HTMLAnchorElement | null)[]>([]);
@@ -48,31 +50,35 @@ function Services() {
   const services = [
     {
       icon: Brain,
-      title: 'AI-репетитор',
-      description: 'Персональный искусственный интеллект адаптируется под ваш стиль обучения и помогает разобраться в сложных темах',
-      features: ['Адаптивное обучение', 'Объяснение материала', 'Практические задания'],
-      color: 'from-blue-500 to-cyan-500'
+      title: t.services.items.aiTutor.title,
+      description: t.services.items.aiTutor.description,
+      features: t.services.items.aiTutor.features,
+      color: 'from-blue-500 to-cyan-500',
+      link: '#ai-tutor'
     },
     {
       icon: GraduationCap,
-      title: 'Помощник для поступления',
-      description: 'Сопровождение на всех этапах поступления: от выбора вуза до подачи документов',
-      features: ['Подбор университетов', 'Расчёт шансов', 'Чек-листы'],
-      color: 'from-cyan-500 to-blue-600'
+      title: t.services.items.admission.title,
+      description: t.services.items.admission.description,
+      features: t.services.items.admission.features,
+      color: 'from-cyan-500 to-blue-600',
+      link: '#admission'
     },
     {
       icon: Repeat,
-      title: 'Конвертер знаний',
-      description: 'Преобразование и систематизация учебного материала в удобный формат для усвоения',
-      features: ['Создание конспектов', 'Mind maps', 'Карточки'],
-      color: 'from-blue-600 to-blue-700'
+      title: t.services.items.converter.title,
+      description: t.services.items.converter.description,
+      features: t.services.items.converter.features,
+      color: 'from-blue-600 to-blue-700',
+      link: '#converter'
     },
     {
       icon: User,
-      title: 'Личный академический профиль',
-      description: 'Портфолио достижений, отслеживание прогресса и рекомендации по развитию',
-      features: ['Портфолио', 'Аналитика', 'Рекомендации'],
-      color: 'from-blue-700 to-cyan-600'
+      title: t.services.items.profile.title,
+      description: t.services.items.profile.description,
+      features: t.services.items.profile.features,
+      color: 'from-blue-700 to-cyan-600',
+      link: '#profile'
     }
   ];
 
@@ -81,23 +87,17 @@ function Services() {
       <div className="max-w-7xl mx-auto">
         <div className="section-header text-center mb-16">
           <h2 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-700 to-cyan-600 bg-clip-text text-transparent fade-in-up" style={{ animationDelay: '0.1s' }}>
-            Сервисы SmartStudentAI
+            {t.services.title}
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto fade-in-up" style={{ animationDelay: '0.2s' }}>
-            Мощные инструменты для эффективного обучения и поступления
+            {t.services.description}
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {services.map((service, index) => {
-            const serviceLinks: Record<string, string> = {
-              'AI-репетитор': '#ai-tutor',
-              'Помощник для поступления': '#admission',
-              'Конвертер знаний': '#converter',
-              'Личный академический профиль': '#profile'
-            };
-            const link = serviceLinks[service.title] || '#services';
-            const CardWrapper = link !== '#services' ? 'a' : 'div';
+            const link = service.link;
+            const CardWrapper = 'a';
             const isVisible = visibleElements.has(index);
             const isEven = index % 2 === 0;
             
@@ -107,7 +107,7 @@ function Services() {
                 ref={(el) => {
                   cardRefs.current[index] = el;
                 }}
-                href={link !== '#services' ? link : undefined}
+                href={link}
                 className={`group relative p-10 bg-white/50 backdrop-blur-2xl border border-white/70 rounded-3xl shadow-2xl hover:shadow-blue-500/20 hover:scale-[1.02] transition-all duration-300 cursor-pointer ${isVisible ? (isEven ? 'slide-in-left' : 'slide-in-right') : 'opacity-0'}`}
                 style={{ animationDelay: `${0.3 + index * 0.15}s` }}
               >

@@ -2,8 +2,10 @@ import { Brain, Lightbulb, Target, TrendingUp, Sparkles, Loader2 } from 'lucide-
 import { useState, useEffect, useRef } from 'react';
 import Header from './Header';
 import Footer from './Footer';
+import { useLanguage } from '../i18n';
 
 function AITutor() {
+  const { t, language } = useLanguage();
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'ai'; content: string }>>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -39,14 +41,14 @@ function AITutor() {
 
   const formatTime = (seconds: number): string => {
     if (seconds < 60) {
-      return `${seconds} сек`;
+      return `${seconds} ${t.aiTutor.time.sec}`;
     }
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     if (remainingSeconds === 0) {
-      return `${minutes} мин`;
+      return `${minutes} ${t.aiTutor.time.min}`;
     }
-    return `${minutes} мин ${remainingSeconds} сек`;
+    return `${minutes} ${t.aiTutor.time.min} ${remainingSeconds} ${t.aiTutor.time.sec}`;
   };
 
   const sendMessageToAI = async (userMessage: string) => {
@@ -58,14 +60,18 @@ function AITutor() {
       const apiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
       
       if (!apiKey) {
-        throw new Error('API ключ не найден. Пожалуйста, добавьте VITE_OPENAI_API_KEY в .env файл');
+        throw new Error(t.aiTutor.apiKeyError);
       }
 
       // Формируем сообщения для API
+      const systemPrompt = language === 'ru' 
+        ? 'Ты опытный репетитор и преподаватель. Твоя задача - помогать студентам разобраться в сложных темах, объяснять материал простым и понятным языком, адаптируясь под уровень знаний ученика. Отвечай на русском языке, будь дружелюбным и терпеливым.'
+        : 'You are an experienced tutor and teacher. Your task is to help students understand complex topics, explain material in simple and clear language, adapting to the student\'s knowledge level. Answer in English, be friendly and patient.';
+      
       const apiMessages = [
         {
           role: 'system',
-          content: 'Ты опытный репетитор и преподаватель. Твоя задача - помогать студентам разобраться в сложных темах, объяснять материал простым и понятным языком, адаптируясь под уровень знаний ученика. Отвечай на русском языке, будь дружелюбным и терпеливым.'
+          content: systemPrompt
         },
         ...messages.map(msg => ({
           role: msg.role === 'user' ? 'user' : 'assistant',
@@ -93,15 +99,15 @@ function AITutor() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `Ошибка API: ${response.status}`);
+        throw new Error(errorData.error?.message || `${t.aiTutor.apiError}: ${response.status}`);
       }
 
       const data = await response.json();
-      const aiMessage = data.choices[0]?.message?.content || 'Извините, не удалось получить ответ.';
+      const aiMessage = data.choices[0]?.message?.content || t.aiTutor.noResponse;
 
       return aiMessage;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Произошла ошибка при обращении к AI';
+      const errorMessage = err instanceof Error ? err.message : t.aiTutor.errorGeneric;
       setError(errorMessage);
       throw err;
     } finally {
@@ -131,23 +137,23 @@ function AITutor() {
   const features = [
     {
       icon: Brain,
-      title: 'Адаптивное обучение',
-      description: 'AI подстраивается под ваш стиль обучения и темп усвоения материала'
+      title: t.aiTutor.features.adaptive.title,
+      description: t.aiTutor.features.adaptive.description
     },
     {
       icon: Lightbulb,
-      title: 'Объяснение сложных тем',
-      description: 'Получайте простые и понятные объяснения даже самых сложных концепций'
+      title: t.aiTutor.features.explain.title,
+      description: t.aiTutor.features.explain.description
     },
     {
       icon: Target,
-      title: 'Персональные задания',
-      description: 'Практические задания, адаптированные под ваш уровень знаний'
+      title: t.aiTutor.features.tasks.title,
+      description: t.aiTutor.features.tasks.description
     },
     {
       icon: TrendingUp,
-      title: 'Отслеживание прогресса',
-      description: 'Видите свой прогресс и получайте рекомендации по улучшению'
+      title: t.aiTutor.features.progress.title,
+      description: t.aiTutor.features.progress.description
     }
   ];
 
@@ -166,10 +172,10 @@ function AITutor() {
           <div className="mb-8">
             <div className="text-center mb-12">
               <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-blue-700 to-cyan-600 bg-clip-text text-transparent">
-                AI-репетитор
+                {t.aiTutor.title}
               </h1>
               <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                Персональный искусственный интеллект, который помогает разобраться в сложных темах и адаптируется под ваш стиль обучения
+                {t.aiTutor.description}
               </p>
             </div>
           </div>
@@ -185,8 +191,8 @@ function AITutor() {
                     <Brain className="w-6 h-6" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold">AI Репетитор</h2>
-                    <p className="text-sm text-white/80">Готов помочь с обучением</p>
+                    <h2 className="text-xl font-bold">{t.aiTutor.chatTitle}</h2>
+                    <p className="text-sm text-white/80">{t.aiTutor.chatSubtitle}</p>
                   </div>
                 </div>
               </div>
@@ -196,8 +202,8 @@ function AITutor() {
                 {messages.length === 0 ? (
                   <div className="text-center text-gray-500 mt-20">
                     <Sparkles className="w-12 h-12 mx-auto mb-4 text-blue-400" />
-                    <p className="text-lg font-medium mb-2">Начните диалог с AI-репетитором</p>
-                    <p className="text-sm">Задайте вопрос по любому предмету или теме</p>
+                    <p className="text-lg font-medium mb-2">{t.aiTutor.emptyChat}</p>
+                    <p className="text-sm">{t.aiTutor.emptyHint}</p>
                   </div>
                 ) : (
                   <>
@@ -223,7 +229,7 @@ function AITutor() {
                           <div className="flex items-center gap-2">
                             <Loader2 className="w-4 h-4 animate-spin" />
                             <p className="text-sm text-gray-600">
-                              AI думает... ({formatTime(thinkingTime)})
+                              {t.aiTutor.thinking} ({formatTime(thinkingTime)})
                             </p>
                           </div>
                         </div>
@@ -233,7 +239,7 @@ function AITutor() {
                 )}
                 {error && (
                   <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm">
-                    <p className="font-medium mb-1">Ошибка</p>
+                    <p className="font-medium mb-1">{t.aiTutor.error}</p>
                     <p>{error}</p>
                   </div>
                 )}
@@ -247,7 +253,7 @@ function AITutor() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                    placeholder="Задайте вопрос..."
+                    placeholder={t.aiTutor.inputPlaceholder}
                     className="flex-1 px-4 py-3 bg-white/60 backdrop-blur-md border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <button
@@ -258,10 +264,10 @@ function AITutor() {
                     {isLoading ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Отправка...
+                        {t.aiTutor.sending}
                       </>
                     ) : (
-                      'Отправить'
+                      t.aiTutor.send
                     )}
                   </button>
                 </div>
@@ -290,15 +296,20 @@ function AITutor() {
 
             {/* Quick Actions */}
             <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-2xl p-6">
-              <h3 className="font-bold text-gray-800 mb-4">Быстрые действия</h3>
+              <h3 className="font-bold text-gray-800 mb-4">{t.aiTutor.quickActions}</h3>
               <div className="space-y-2">
-                {['Математика', 'Физика', 'Химия', 'История'].map((subject) => (
+                {[
+                  { key: 'math', label: t.aiTutor.subjects.math },
+                  { key: 'physics', label: t.aiTutor.subjects.physics },
+                  { key: 'chemistry', label: t.aiTutor.subjects.chemistry },
+                  { key: 'history', label: t.aiTutor.subjects.history }
+                ].map((subject) => (
                   <button
-                    key={subject}
-                    onClick={() => setInput(`Объясни тему по ${subject.toLowerCase()}`)}
+                    key={subject.key}
+                    onClick={() => setInput(`${t.aiTutor.explainTopic} ${subject.label.toLowerCase()}`)}
                     className="w-full text-left px-4 py-2 bg-white/60 rounded-lg hover:bg-white/80 transition-colors text-sm font-medium text-gray-700"
                   >
-                    {subject}
+                    {subject.label}
                   </button>
                 ))}
               </div>

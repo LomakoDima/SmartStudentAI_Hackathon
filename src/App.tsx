@@ -12,6 +12,9 @@ import KnowledgeConverter from './components/KnowledgeConverter';
 import ConverterResult from './components/ConverterResult';
 import AdmissionHelper from './components/AdmissionHelper';
 import Profile from './components/Profile';
+import AboutUniversity from './components/AboutUniversity';
+import AcademicPrograms from './components/AcademicPrograms';
+import International from './components/International';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
@@ -180,6 +183,30 @@ function App() {
           <Header />
           <Profile />
           <Footer />
+        </div>
+      );
+    }
+
+    if (currentPage === 'about-university') {
+      return (
+        <div className={isEntering && !isInitialLoad ? 'page-enter' : ''}>
+          <AboutUniversity />
+        </div>
+      );
+    }
+
+    if (currentPage === 'academic-programs') {
+      return (
+        <div className={isEntering && !isInitialLoad ? 'page-enter' : ''}>
+          <AcademicPrograms />
+        </div>
+      );
+    }
+
+    if (currentPage === 'international') {
+      return (
+        <div className={isEntering && !isInitialLoad ? 'page-enter' : ''}>
+          <International />
         </div>
       );
     }

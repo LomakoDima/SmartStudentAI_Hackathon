@@ -1,11 +1,14 @@
-import { Menu, X, Home, Database, GitCompare, Camera, Brain, Wand2, GraduationCap, ChevronDown, User, Settings, LogOut } from 'lucide-react';
+import { Menu, X, Home, Database, GitCompare, Camera, Brain, Wand2, GraduationCap, ChevronDown, User, Settings, LogOut, Globe, Building2, BookOpen, Handshake } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useLanguage } from '../i18n';
 
 function Header() {
+  const { language, setLanguage, t } = useLanguage();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [currentPage, setCurrentPage] = useState('home');
   const [isServicesOpen, setIsServicesOpen] = useState(false);
+  const [isDataHubOpen, setIsDataHubOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userName, setUserName] = useState('');
@@ -61,20 +64,28 @@ function Header() {
     if (page === 'services') {
       return ['ai-tutor', 'converter', 'admission', 'tutor', 'knowledge-converter', 'admission-helper'].includes(currentPage);
     }
+    if (page === 'datahub') {
+      return ['datahub', 'about-university', 'academic-programs', 'international', 'compare', 'tour'].includes(currentPage);
+    }
     return currentPage === page || currentPage.startsWith(page);
   };
 
   const navItems = [
-    { href: '#home', label: 'Главная', icon: Home },
-    { href: '#datahub', label: 'DataHub', icon: Database },
-    { href: '#compare', label: 'Сравнение', icon: GitCompare },
-    { href: '#tour', label: '3D-тур', icon: Camera }
+    { href: '#home', label: t.header.home, icon: Home }
+  ];
+
+  const dataHubItems = [
+    { href: '#about-university', label: t.header.aboutUniversity, icon: Building2 },
+    { href: '#academic-programs', label: t.header.academicPrograms, icon: BookOpen },
+    { href: '#international', label: t.header.international, icon: Handshake },
+    { href: '#compare', label: t.header.compare, icon: GitCompare },
+    { href: '#tour', label: t.header.tour3d, icon: Camera }
   ];
 
   const serviceItems = [
-    { href: '#ai-tutor', label: 'AI-репетитор', icon: Brain },
-    { href: '#converter', label: 'Конвертер знаний', icon: Wand2 },
-    { href: '#admission', label: 'Помощник для поступления', icon: GraduationCap }
+    { href: '#ai-tutor', label: t.header.aiTutor, icon: Brain },
+    { href: '#converter', label: t.header.converter, icon: Wand2 },
+    { href: '#admission', label: t.header.admission, icon: GraduationCap }
   ];
 
   return (
@@ -115,6 +126,53 @@ function Header() {
               );
             })}
             
+            {/* DataHub Dropdown */}
+            <div 
+              className="relative"
+              onMouseEnter={() => setIsDataHubOpen(true)}
+              onMouseLeave={() => setIsDataHubOpen(false)}
+            >
+              <button 
+                className={`relative px-4 py-2 rounded-lg font-medium transition-all duration-300 flex items-center gap-2 ${
+                  isDataHubOpen || isActive('datahub')
+                    ? 'text-blue-600 bg-blue-50'
+                    : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                }`}
+              >
+                <Database className={`w-4 h-4 transition-transform ${isDataHubOpen || isActive('datahub') ? 'scale-110' : ''}`} />
+                <span>{t.header.dataHub}</span>
+                <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isDataHubOpen ? 'rotate-180' : ''}`} />
+                {(isDataHubOpen || isActive('datahub')) && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-full"></div>
+                )}
+              </button>
+              
+              <div className={`absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-80 bg-white/95 backdrop-blur-xl border border-gray-200/80 rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 z-50 ${
+                isDataHubOpen ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible -translate-y-2'
+              }`}>
+                <div className="p-2">
+                  {dataHubItems.map((item) => (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      className={`block px-4 py-3 rounded-xl transition-all duration-200 flex items-center gap-3 group ${
+                        isActive(item.href.slice(1))
+                          ? 'bg-blue-50 text-blue-600'
+                          : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
+                      }`}
+                    >
+                      <item.icon className="w-5 h-5 flex-shrink-0" />
+                      <span className="font-medium">{item.label}</span>
+                      {isActive(item.href.slice(1)) && (
+                        <div className="ml-auto w-2 h-2 bg-blue-600 rounded-full"></div>
+                      )}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+            
+            {/* Services Dropdown */}
             <div 
               className="relative"
               onMouseEnter={() => setIsServicesOpen(true)}
@@ -127,7 +185,7 @@ function Header() {
                     : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
                 }`}
               >
-                <span>Сервисы</span>
+                <span>{t.header.services}</span>
                 <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isServicesOpen ? 'rotate-180' : ''}`} />
                 {(isServicesOpen || isActive('services')) && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-full"></div>
@@ -159,6 +217,21 @@ function Header() {
               </div>
             </div>
             
+            {/* Language Switcher */}
+            <button
+              onClick={(e) => {
+                const btn = e.currentTarget;
+                btn.classList.add('language-switch-active');
+                setTimeout(() => btn.classList.remove('language-switch-active'), 300);
+                setLanguage(language === 'ru' ? 'en' : 'ru');
+              }}
+              className="ml-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-300 flex items-center gap-1.5 font-medium border border-gray-200 hover:border-blue-300"
+              title={language === 'ru' ? 'Switch to English' : 'Переключить на русский'}
+            >
+              <Globe className="w-4 h-4 transition-transform duration-300 hover:rotate-180" />
+              <span className="text-sm uppercase font-semibold">{language}</span>
+            </button>
+            
             <div className="ml-2 flex items-center gap-3">
               {isAuthenticated ? (
                 <div 
@@ -170,7 +243,7 @@ function Header() {
                     className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-semibold rounded-xl hover:shadow-xl hover:shadow-cyan-500/40 hover:scale-105 transition-all duration-300 relative overflow-hidden group flex items-center gap-2"
                   >
                     <User className="w-4 h-4 relative z-10" />
-                    <span className="relative z-10">{userName || 'Профиль'}</span>
+                    <span className="relative z-10">{userName || t.header.profile}</span>
                     <ChevronDown className={`w-4 h-4 relative z-10 transition-transform duration-300 ${isProfileOpen ? 'rotate-180' : ''}`} />
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </button>
@@ -189,7 +262,7 @@ function Header() {
                         onClick={() => setIsProfileOpen(false)}
                       >
                         <User className="w-5 h-5 flex-shrink-0" />
-                        <span className="font-medium">Профиль</span>
+                        <span className="font-medium">{t.header.profile}</span>
                       </a>
                       <a
                         href="#profile"
@@ -207,7 +280,7 @@ function Header() {
                         className="block px-4 py-3 rounded-xl transition-all duration-200 flex items-center gap-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600"
                       >
                         <Settings className="w-5 h-5 flex-shrink-0" />
-                        <span className="font-medium">Настройки</span>
+                        <span className="font-medium">{t.header.settings}</span>
                       </a>
                       <div className="border-t border-gray-200/50 my-1"></div>
                       <button
@@ -223,7 +296,7 @@ function Header() {
                         className="w-full text-left px-4 py-3 rounded-xl transition-all duration-200 flex items-center gap-3 text-red-600 hover:bg-red-50"
                       >
                         <LogOut className="w-5 h-5 flex-shrink-0" />
-                        <span className="font-medium">Выйти</span>
+                        <span className="font-medium">{t.header.logout}</span>
                       </button>
                     </div>
                   </div>
@@ -234,13 +307,13 @@ function Header() {
                     href="#register"
                     className="px-5 py-2.5 text-blue-600 font-semibold rounded-xl hover:bg-blue-50 transition-all duration-300 inline-block"
                   >
-                    Регистрация
+                    {t.header.register}
                   </a>
                   <a
                     href="#auth"
                     className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-blue-500/50 hover:scale-105 transition-all duration-300 inline-block relative overflow-hidden group"
                   >
-                    <span className="relative z-10">Войти</span>
+                    <span className="relative z-10">{t.header.login}</span>
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-700 to-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </a>
                 </>
@@ -288,7 +361,36 @@ function Header() {
               <div className="border-t border-gray-200 my-2"></div>
               
               <div className="px-4 py-2">
-                <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Сервисы</div>
+                <div className="text-xs font-semibold text-gray-500 uppercase mb-2">{t.header.dataHub}</div>
+                <div className="space-y-1">
+                  {dataHubItems.map((item) => {
+                    const active = isActive(item.href.slice(1));
+                    return (
+                      <a
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setIsMenuOpen(false)}
+                        className={`px-4 py-3 rounded-xl font-medium transition-all duration-200 flex items-center gap-3 ${
+                          active
+                            ? 'bg-blue-50 text-blue-600'
+                            : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600'
+                        }`}
+                      >
+                        <item.icon className="w-5 h-5" />
+                        <span>{item.label}</span>
+                        {active && (
+                          <div className="ml-auto w-2 h-2 bg-blue-600 rounded-full"></div>
+                        )}
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              <div className="border-t border-gray-200 my-2"></div>
+              
+              <div className="px-4 py-2">
+                <div className="text-xs font-semibold text-gray-500 uppercase mb-2">{t.header.services}</div>
                 <div className="space-y-1">
                   {serviceItems.map((item) => {
                     const active = isActive(item.href.slice(1));
@@ -322,7 +424,7 @@ function Header() {
                     onClick={() => setIsMenuOpen(false)}
                   >
                     <User className="w-5 h-5" />
-                    Профиль
+                    {t.header.profile}
                   </a>
                   <a
                     href="#profile"
@@ -340,7 +442,7 @@ function Header() {
                     className="block px-6 py-3 bg-white border-2 border-blue-600 text-blue-600 font-semibold rounded-xl hover:bg-blue-50 transition-all duration-300 text-center flex items-center justify-center gap-2"
                   >
                     <Settings className="w-5 h-5" />
-                    Настройки
+                    {t.header.settings}
                   </a>
                   <button
                     onClick={() => {
@@ -355,7 +457,7 @@ function Header() {
                     className="w-full px-6 py-3 bg-white border-2 border-red-600 text-red-600 font-semibold rounded-xl hover:bg-red-50 transition-all duration-300 text-center flex items-center justify-center gap-2"
                   >
                     <LogOut className="w-5 h-5" />
-                    Выйти
+                    {t.header.logout}
                   </button>
                 </div>
               ) : (
@@ -365,14 +467,14 @@ function Header() {
                     className="px-6 py-3 bg-white border-2 border-blue-600 text-blue-600 font-semibold rounded-xl hover:bg-blue-50 transition-all duration-300 text-center"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Регистрация
+                    {t.header.register}
                   </a>
                   <a
                     href="#auth"
                     className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:shadow-lg transition-all duration-300 text-center"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Войти
+                    {t.header.login}
                   </a>
                 </div>
               )}

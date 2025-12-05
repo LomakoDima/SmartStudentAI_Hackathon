@@ -182,3 +182,40 @@ html {
 .node-appear {
   animation: nodeAppear 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
+
+/* Language transition animations */
+.language-transition {
+  transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+}
+
+.language-changing {
+  opacity: 0;
+  transform: scale(0.99);
+}
+
+.language-ready {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Additional smooth text transitions */
+h1, h2, h3, h4, h5, h6, p, span, a, button, label, div {
+  transition: color 0.2s ease-out;
+}
+
+/* Language switcher button animation */
+@keyframes languagePulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.language-switch-active {
+  animation: languagePulse 0.3s ease-out;
+}

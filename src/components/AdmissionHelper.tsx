@@ -1,320 +1,679 @@
-import { ArrowLeft, GraduationCap, CheckCircle, FileCheck, Target, TrendingUp, Award, Calculator, BookOpen } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { GraduationCap, Send, Loader2, User, Bot, Sparkles, FileText, Target, CheckCircle, RefreshCw, MessageSquare } from 'lucide-react';
+import Header from './Header';
+import Footer from './Footer';
+import { useLanguage } from '../i18n';
+
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
+
+interface StudentProfile {
+  entScore: number;
+  gpa: number;
+  interests: string;
+  preferredCity: string;
+  budget: string;
+}
 
 function AdmissionHelper() {
-  const [step, setStep] = useState(1);
-  const [selectedUniversity, setSelectedUniversity] = useState('');
-  const [scores, setScores] = useState({ ent: 0, gpa: 0 });
+  const { language } = useLanguage();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'chat' | 'profile' | 'checklist'>('chat');
+  const [profile, setProfile] = useState<StudentProfile>({
+    entScore: 0,
+    gpa: 0,
+    interests: '',
+    preferredCity: '',
+    budget: ''
+  });
+  const [checklist, setChecklist] = useState<{ item: string; completed: boolean }[]>([]);
+  const [isGeneratingChecklist, setIsGeneratingChecklist] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const universities = [
-    'Назарбаев Университет',
-    'КазНУ им. аль-Фараби',
-    'КБТУ',
-    'КазНТУ им. Сатпаева',
-    'ЕНУ им. Л.Н. Гумилёва'
-  ];
-
-  const steps = [
-    {
-      number: 1,
-      title: 'Выбор университета',
-      icon: GraduationCap,
-      description: 'Выберите интересующий вас университет'
+  const t = {
+    ru: {
+      title: 'AI Помощник для поступления',
+      description: 'Персональный AI-консультант для подготовки к поступлению в университеты Казахстана',
+      tabs: {
+        chat: 'Консультация',
+        profile: 'Мой профиль',
+        checklist: 'Чек-лист'
+      },
+      chat: {
+        placeholder: 'Задайте вопрос о поступлении...',
+        send: 'Отправить',
+        thinking: 'AI думает...',
+        welcome: 'Привет! Я ваш AI-помощник для поступления в университеты Казахстана. Я могу помочь с:\n\n• Выбором университета и специальности\n• Информацией о требованиях и сроках\n• Подготовкой документов\n• Расчётом шансов на поступление\n• Советами по подготовке к ЕНТ\n• Написанием мотивационного письма\n\nЗадайте любой вопрос!',
+        error: 'Произошла ошибка. Попробуйте ещё раз.',
+        quickQuestions: [
+          'Какие документы нужны для поступления?',
+          'Как рассчитать мои шансы на грант?',
+          'Помоги написать мотивационное письмо',
+          'Сроки подачи документов 2025'
+        ]
+      },
+      profile: {
+        title: 'Ваш профиль абитуриента',
+        entScore: 'Балл ЕНТ (или ожидаемый)',
+        gpa: 'Средний балл аттестата',
+        interests: 'Интересующие направления',
+        interestsPlaceholder: 'Например: IT, медицина, бизнес...',
+        preferredCity: 'Предпочтительный город',
+        budget: 'Бюджет на обучение',
+        budgetOptions: ['Грант', 'До 1 млн ₸/год', '1-2 млн ₸/год', 'Без ограничений'],
+        save: 'Сохранить профиль',
+        saved: 'Профиль сохранён!',
+        getRecommendations: 'Получить рекомендации от AI'
+      },
+      checklist: {
+        title: 'Персональный чек-лист',
+        generate: 'Сгенерировать чек-лист',
+        generating: 'Генерация...',
+        empty: 'Заполните профиль и нажмите "Сгенерировать чек-лист" для получения персонализированного плана подготовки',
+        markDone: 'Отметить как выполнено'
+      },
+      features: {
+        consultation: {
+          title: 'AI Консультации',
+          desc: 'Мгновенные ответы на все вопросы о поступлении'
+        },
+        recommendations: {
+          title: 'Персональные рекомендации',
+          desc: 'Советы на основе ваших баллов и интересов'
+        },
+        documents: {
+          title: 'Помощь с документами',
+          desc: 'Чек-листы и шаблоны для поступления'
+        },
+        motivation: {
+          title: 'Мотивационное письмо',
+          desc: 'AI поможет написать эффективное письмо'
+        }
+      }
     },
-    {
-      number: 2,
-      title: 'Ввод баллов',
-      icon: Calculator,
-      description: 'Укажите ваши баллы ЕНТ и средний балл'
-    },
-    {
-      number: 3,
-      title: 'Расчёт шансов',
-      icon: TrendingUp,
-      description: 'Получите оценку ваших шансов на поступление'
-    },
-    {
-      number: 4,
-      title: 'Рекомендации',
-      icon: Target,
-      description: 'Получите персональные рекомендации'
+    en: {
+      title: 'AI Admission Helper',
+      description: 'Personal AI consultant for preparing to enter universities in Kazakhstan',
+      tabs: {
+        chat: 'Consultation',
+        profile: 'My Profile',
+        checklist: 'Checklist'
+      },
+      chat: {
+        placeholder: 'Ask a question about admission...',
+        send: 'Send',
+        thinking: 'AI is thinking...',
+        welcome: 'Hello! I am your AI assistant for admission to universities in Kazakhstan. I can help with:\n\n• Choosing a university and major\n• Information about requirements and deadlines\n• Document preparation\n• Calculating admission chances\n• UNT preparation tips\n• Writing a motivation letter\n\nAsk any question!',
+        error: 'An error occurred. Please try again.',
+        quickQuestions: [
+          'What documents are needed for admission?',
+          'How to calculate my grant chances?',
+          'Help me write a motivation letter',
+          'Application deadlines 2025'
+        ]
+      },
+      profile: {
+        title: 'Your Applicant Profile',
+        entScore: 'UNT Score (or expected)',
+        gpa: 'GPA',
+        interests: 'Areas of Interest',
+        interestsPlaceholder: 'e.g.: IT, medicine, business...',
+        preferredCity: 'Preferred City',
+        budget: 'Education Budget',
+        budgetOptions: ['Grant', 'Up to $2,000/year', '$2,000-4,000/year', 'No limit'],
+        save: 'Save Profile',
+        saved: 'Profile saved!',
+        getRecommendations: 'Get AI Recommendations'
+      },
+      checklist: {
+        title: 'Personal Checklist',
+        generate: 'Generate Checklist',
+        generating: 'Generating...',
+        empty: 'Fill in your profile and click "Generate Checklist" to get a personalized preparation plan',
+        markDone: 'Mark as done'
+      },
+      features: {
+        consultation: {
+          title: 'AI Consultations',
+          desc: 'Instant answers to all admission questions'
+        },
+        recommendations: {
+          title: 'Personal Recommendations',
+          desc: 'Advice based on your scores and interests'
+        },
+        documents: {
+          title: 'Document Help',
+          desc: 'Checklists and templates for admission'
+        },
+        motivation: {
+          title: 'Motivation Letter',
+          desc: 'AI will help write an effective letter'
+        }
+      }
     }
-  ];
-
-  const calculateChance = () => {
-    // Простая симуляция расчёта
-    const totalScore = scores.ent * 0.7 + scores.gpa * 30;
-    if (totalScore >= 120) return { percentage: 95, status: 'excellent' };
-    if (totalScore >= 100) return { percentage: 75, status: 'good' };
-    if (totalScore >= 80) return { percentage: 50, status: 'medium' };
-    return { percentage: 25, status: 'low' };
   };
 
-  const chance = step >= 3 ? calculateChance() : null;
+  const texts = t[language];
+
+  const cities = language === 'ru' 
+    ? ['Любой', 'Алматы', 'Астана', 'Караганда', 'Шымкент']
+    : ['Any', 'Almaty', 'Astana', 'Karaganda', 'Shymkent'];
+
+  useEffect(() => {
+    // Add welcome message
+    if (messages.length === 0) {
+      setMessages([{
+        id: 'welcome',
+        role: 'assistant',
+        content: texts.chat.welcome,
+        timestamp: new Date()
+      }]);
+    }
+  }, [language]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const sendMessage = async (content: string) => {
+    if (!content.trim() || isLoading) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: content.trim(),
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage('');
+    setIsLoading(true);
+
+    try {
+      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+      
+      if (!apiKey) {
+        throw new Error('API key not found');
+      }
+
+      const systemPrompt = language === 'ru'
+        ? `Ты - опытный консультант по поступлению в университеты Казахстана. Ты помогаешь абитуриентам с:
+- Выбором университета и специальности
+- Информацией о требованиях и сроках поступления
+- Подготовкой документов
+- Расчётом шансов на грант
+- Советами по подготовке к ЕНТ
+- Написанием мотивационных писем
+
+Профиль абитуриента (если заполнен):
+- Балл ЕНТ: ${profile.entScore || 'не указан'}
+- GPA: ${profile.gpa || 'не указан'}
+- Интересы: ${profile.interests || 'не указаны'}
+- Город: ${profile.preferredCity || 'не указан'}
+- Бюджет: ${profile.budget || 'не указан'}
+
+Давай конкретные, практические советы. Будь дружелюбным и поддерживающим. Отвечай на русском.`
+        : `You are an experienced consultant for university admission in Kazakhstan. You help applicants with:
+- Choosing a university and major
+- Information about requirements and deadlines
+- Document preparation
+- Calculating grant chances
+- UNT (Unified National Testing) preparation tips
+- Writing motivation letters
+
+Applicant profile (if filled):
+- UNT Score: ${profile.entScore || 'not specified'}
+- GPA: ${profile.gpa || 'not specified'}
+- Interests: ${profile.interests || 'not specified'}
+- City: ${profile.preferredCity || 'not specified'}
+- Budget: ${profile.budget || 'not specified'}
+
+Give specific, practical advice. Be friendly and supportive. Answer in English.`;
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
+            { role: 'user', content: content }
+          ],
+          temperature: 0.7,
+          max_tokens: 1000
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('API request failed');
+      }
+
+      const data = await response.json();
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: data.choices[0]?.message?.content || texts.chat.error,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Chat error:', error);
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: texts.chat.error,
+        timestamp: new Date()
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const generateChecklist = async () => {
+    setIsGeneratingChecklist(true);
+    
+    try {
+      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+      
+      if (!apiKey) {
+        throw new Error('API key not found');
+      }
+
+      const prompt = language === 'ru'
+        ? `Создай персонализированный чек-лист для поступления в университет Казахстана.
+
+Профиль абитуриента:
+- Балл ЕНТ: ${profile.entScore || 'не указан'}
+- GPA: ${profile.gpa || 'не указан'}
+- Интересы: ${profile.interests || 'IT, технологии'}
+- Предпочтительный город: ${profile.preferredCity || 'Алматы'}
+- Бюджет: ${profile.budget || 'Грант'}
+
+Верни JSON массив из 10-15 пунктов в формате:
+[{"item": "текст пункта"}, {"item": "текст пункта"}]
+
+Включи конкретные шаги: подготовка документов, сроки, подача заявления, подготовка к ЕНТ, написание мотивационного письма и т.д.
+Только JSON, без markdown и пояснений.`
+        : `Create a personalized checklist for university admission in Kazakhstan.
+
+Applicant profile:
+- UNT Score: ${profile.entScore || 'not specified'}
+- GPA: ${profile.gpa || 'not specified'}
+- Interests: ${profile.interests || 'IT, technology'}
+- Preferred city: ${profile.preferredCity || 'Almaty'}
+- Budget: ${profile.budget || 'Grant'}
+
+Return a JSON array of 10-15 items in format:
+[{"item": "item text"}, {"item": "item text"}]
+
+Include specific steps: document preparation, deadlines, application submission, UNT preparation, motivation letter writing, etc.
+Only JSON, no markdown or explanations.`;
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.5,
+          max_tokens: 1000
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('API request failed');
+      }
+
+      const data = await response.json();
+      let content = data.choices[0]?.message?.content || '[]';
+      
+      // Clean JSON
+      content = content.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      const jsonStart = content.indexOf('[');
+      const jsonEnd = content.lastIndexOf(']');
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        content = content.substring(jsonStart, jsonEnd + 1);
+      }
+
+      const items = JSON.parse(content);
+      setChecklist(items.map((i: { item: string }) => ({ item: i.item, completed: false })));
+    } catch (error) {
+      console.error('Checklist generation error:', error);
+    } finally {
+      setIsGeneratingChecklist(false);
+    }
+  };
+
+  const getRecommendations = () => {
+    const prompt = language === 'ru'
+      ? `На основе моего профиля (ЕНТ: ${profile.entScore}, GPA: ${profile.gpa}, интересы: ${profile.interests}, город: ${profile.preferredCity}, бюджет: ${profile.budget}), какие университеты и специальности мне подойдут? Какие у меня шансы на грант?`
+      : `Based on my profile (UNT: ${profile.entScore}, GPA: ${profile.gpa}, interests: ${profile.interests}, city: ${profile.preferredCity}, budget: ${profile.budget}), which universities and majors would suit me? What are my chances for a grant?`;
+    
+    setActiveTab('chat');
+    sendMessage(prompt);
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      {/* Background decorations */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-96 h-96 bg-blue-400/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-10 w-80 h-80 bg-cyan-400/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-      </div>
-
-      <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <a
-            href="#home"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-blue-600 mb-6 transition-colors group"
-          >
-            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            <span className="font-medium">Вернуться на главную</span>
-          </a>
-
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-3xl mb-6 shadow-xl">
-              <GraduationCap className="w-10 h-10 text-white" />
-            </div>
-            <h1 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-blue-700 to-cyan-600 bg-clip-text text-transparent">
-              Помощник для поступления
-            </h1>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Сопровождение на всех этапах поступления: от выбора вуза до подачи документов
-            </p>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-gray-100">
+      <Header />
+      <div className="py-8 px-4 sm:px-6 lg:px-8">
+        {/* Background decorations */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-20 left-10 w-96 h-96 bg-blue-400/20 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-20 right-10 w-80 h-80 bg-cyan-400/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
         </div>
 
-        {/* Steps Progress */}
-        <div className="mb-12">
-          <div className="flex items-center justify-between max-w-4xl mx-auto">
-            {steps.map((s, index) => (
-              <div key={s.number} className="flex items-center flex-1">
-                <div className="flex flex-col items-center flex-1">
-                  <div
-                    className={`w-16 h-16 rounded-full flex items-center justify-center font-bold text-lg transition-all duration-300 ${
-                      step >= s.number
-                        ? 'bg-gradient-to-br from-blue-600 to-cyan-600 text-white shadow-lg scale-110'
-                        : 'bg-gray-200 text-gray-500'
-                    }`}
-                  >
-                    {step > s.number ? <CheckCircle className="w-8 h-8" /> : s.number}
-                  </div>
-                  <p className="mt-2 text-sm font-medium text-gray-700 text-center max-w-[100px]">{s.title}</p>
-                </div>
-                {index < steps.length - 1 && (
-                  <div
-                    className={`h-1 flex-1 mx-2 rounded ${
-                      step > s.number ? 'bg-blue-600' : 'bg-gray-200'
-                    }`}
-                  ></div>
-                )}
+        <div className="relative z-10 max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-2xl mb-4 shadow-xl">
+              <GraduationCap className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-3xl md:text-4xl font-bold mb-2 bg-gradient-to-r from-blue-700 to-cyan-600 bg-clip-text text-transparent">
+              {texts.title}
+            </h1>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              {texts.description}
+            </p>
+          </div>
+
+          {/* Features */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {[
+              { icon: MessageSquare, ...texts.features.consultation },
+              { icon: Target, ...texts.features.recommendations },
+              { icon: FileText, ...texts.features.documents },
+              { icon: Sparkles, ...texts.features.motivation }
+            ].map((feature, idx) => (
+              <div key={idx} className="bg-white/60 backdrop-blur-xl border border-white/70 rounded-xl p-4 text-center">
+                <feature.icon className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+                <h3 className="font-semibold text-gray-800 text-sm">{feature.title}</h3>
+                <p className="text-xs text-gray-500 mt-1">{feature.desc}</p>
               </div>
             ))}
           </div>
-        </div>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Form Section */}
-          <div className="lg:col-span-2">
-            <div className="bg-white/60 backdrop-blur-xl border border-white/70 rounded-3xl shadow-2xl p-8">
-              {step === 1 && (
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Выберите университет</h2>
-                  <div className="space-y-3">
-                    {universities.map((uni) => (
-                      <button
-                        key={uni}
-                        onClick={() => {
-                          setSelectedUniversity(uni);
-                          setStep(2);
-                        }}
-                        className="w-full p-4 bg-white/60 hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-500 rounded-xl text-left transition-all duration-300 flex items-center gap-4"
-                      >
-                        <GraduationCap className="w-6 h-6 text-blue-600" />
-                        <span className="font-medium text-gray-800">{uni}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+          {/* Main Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Sidebar */}
+            <div className="lg:col-span-1 space-y-4">
+              {/* Tabs */}
+              <div className="bg-white/60 backdrop-blur-xl border border-white/70 rounded-xl p-2 flex gap-2">
+                {(['chat', 'profile', 'checklist'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all ${
+                      activeTab === tab
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {texts.tabs[tab]}
+                  </button>
+                ))}
+              </div>
 
-              {step === 2 && (
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Введите ваши баллы</h2>
-                  <div className="space-y-6">
+              {/* Profile Form */}
+              {activeTab === 'profile' && (
+                <div className="bg-white/60 backdrop-blur-xl border border-white/70 rounded-xl p-6">
+                  <h3 className="font-bold text-gray-800 mb-4">{texts.profile.title}</h3>
+                  <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Балл ЕНТ
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{texts.profile.entScore}</label>
                       <input
                         type="number"
-                        value={scores.ent || ''}
-                        onChange={(e) => setScores({ ...scores, ent: parseInt(e.target.value) || 0 })}
-                        className="w-full px-4 py-3 bg-white/60 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={profile.entScore || ''}
+                        onChange={(e) => setProfile({ ...profile, entScore: parseInt(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="0-140"
                         max={140}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Средний балл аттестата (GPA)
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{texts.profile.gpa}</label>
                       <input
                         type="number"
-                        value={scores.gpa || ''}
-                        onChange={(e) => setScores({ ...scores, gpa: parseFloat(e.target.value) || 0 })}
-                        className="w-full px-4 py-3 bg-white/60 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={profile.gpa || ''}
+                        onChange={(e) => setProfile({ ...profile, gpa: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="0.0-5.0"
                         step="0.1"
                         max={5}
                       />
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{texts.profile.interests}</label>
+                      <input
+                        type="text"
+                        value={profile.interests}
+                        onChange={(e) => setProfile({ ...profile, interests: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder={texts.profile.interestsPlaceholder}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{texts.profile.preferredCity}</label>
+                      <select
+                        value={profile.preferredCity}
+                        onChange={(e) => setProfile({ ...profile, preferredCity: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">--</option>
+                        {cities.map((city) => (
+                          <option key={city} value={city}>{city}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{texts.profile.budget}</label>
+                      <select
+                        value={profile.budget}
+                        onChange={(e) => setProfile({ ...profile, budget: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">--</option>
+                        {texts.profile.budgetOptions.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
                     <button
-                      onClick={() => setStep(3)}
-                      className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-semibold rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-300"
+                      onClick={getRecommendations}
+                      className="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2"
                     >
-                      Рассчитать шансы
+                      <Sparkles className="w-5 h-5" />
+                      {texts.profile.getRecommendations}
                     </button>
                   </div>
                 </div>
               )}
 
-              {step === 3 && chance && (
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Ваши шансы на поступление</h2>
-                  <div className="text-center mb-8">
-                    <div className="relative w-48 h-48 mx-auto mb-6">
-                      <svg className="transform -rotate-90 w-48 h-48">
-                        <circle
-                          cx="96"
-                          cy="96"
-                          r="88"
-                          stroke="currentColor"
-                          strokeWidth="16"
-                          fill="none"
-                          className="text-gray-200"
-                        />
-                        <circle
-                          cx="96"
-                          cy="96"
-                          r="88"
-                          stroke="currentColor"
-                          strokeWidth="16"
-                          fill="none"
-                          strokeDasharray={`${(chance.percentage / 100) * 552.92} 552.92`}
-                          className={`${
-                            chance.status === 'excellent'
-                              ? 'text-green-500'
-                              : chance.status === 'good'
-                              ? 'text-blue-500'
-                              : chance.status === 'medium'
-                              ? 'text-yellow-500'
-                              : 'text-red-500'
-                          } transition-all duration-1000`}
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-4xl font-bold text-gray-800">{chance.percentage}%</span>
-                      </div>
-                    </div>
-                    <p className="text-lg text-gray-700 mb-4">
-                      {selectedUniversity}
-                    </p>
-                    <div className="flex justify-center gap-4">
-                      <button
-                        onClick={() => setStep(2)}
-                        className="px-6 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-medium text-gray-700 transition-colors"
-                      >
-                        Изменить данные
-                      </button>
-                      <button
-                        onClick={() => setStep(4)}
-                        className="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all duration-300"
-                      >
-                        Получить рекомендации
-                      </button>
-                    </div>
+              {/* Checklist */}
+              {activeTab === 'checklist' && (
+                <div className="bg-white/60 backdrop-blur-xl border border-white/70 rounded-xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-gray-800">{texts.checklist.title}</h3>
+                    <button
+                      onClick={generateChecklist}
+                      disabled={isGeneratingChecklist}
+                      className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+                    >
+                      {isGeneratingChecklist ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          {texts.checklist.generating}
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4" />
+                          {texts.checklist.generate}
+                        </>
+                      )}
+                    </button>
                   </div>
+                  
+                  {checklist.length === 0 ? (
+                    <p className="text-gray-500 text-sm">{texts.checklist.empty}</p>
+                  ) : (
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {checklist.map((item, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            const newChecklist = [...checklist];
+                            newChecklist[idx].completed = !newChecklist[idx].completed;
+                            setChecklist(newChecklist);
+                          }}
+                          className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all ${
+                            item.completed ? 'bg-green-50 border border-green-200' : 'bg-gray-50 hover:bg-gray-100'
+                          }`}
+                        >
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                            item.completed ? 'bg-green-500' : 'bg-gray-300'
+                          }`}>
+                            {item.completed && <CheckCircle className="w-3 h-3 text-white" />}
+                          </div>
+                          <span className={`text-sm ${item.completed ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
+                            {item.item}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {step === 4 && (
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Персональные рекомендации</h2>
-                  <div className="space-y-4">
-                    {[
-                      { icon: BookOpen, title: 'Подготовка к экзаменам', text: 'Рекомендуем дополнительно подготовиться по математике и физике' },
-                      { icon: FileCheck, title: 'Документы', text: 'Подготовьте все необходимые документы заранее' },
-                      { icon: Target, title: 'Альтернативные варианты', text: 'Рассмотрите также КБТУ и КазНТУ как запасные варианты' }
-                    ].map((rec, idx) => (
-                      <div key={idx} className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                        <div className="flex items-start gap-3">
-                          <rec.icon className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
-                          <div>
-                            <h3 className="font-bold text-gray-800 mb-1">{rec.title}</h3>
-                            <p className="text-sm text-gray-600">{rec.text}</p>
-                          </div>
-                        </div>
-                      </div>
+              {/* Quick Questions */}
+              {activeTab === 'chat' && (
+                <div className="bg-white/60 backdrop-blur-xl border border-white/70 rounded-xl p-4">
+                  <h4 className="font-medium text-gray-700 mb-3 text-sm">{language === 'ru' ? 'Быстрые вопросы' : 'Quick Questions'}</h4>
+                  <div className="space-y-2">
+                    {texts.chat.quickQuestions.map((q, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => sendMessage(q)}
+                        className="w-full text-left px-3 py-2 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors"
+                      >
+                        {q}
+                      </button>
                     ))}
                   </div>
-                  <button
-                    onClick={() => {
-                      setStep(1);
-                      setSelectedUniversity('');
-                      setScores({ ent: 0, gpa: 0 });
-                    }}
-                    className="w-full mt-6 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all duration-300"
-                  >
-                    Начать заново
-                  </button>
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            <div className="bg-white/60 backdrop-blur-xl border border-white/70 rounded-2xl p-6">
-              <h3 className="font-bold text-gray-800 mb-4">Чек-лист поступления</h3>
-              <div className="space-y-3">
-                {[
-                  'Выбрать специальность',
-                  'Подготовить документы',
-                  'Подать заявление',
-                  'Пройти вступительные испытания',
-                  'Дождаться результатов'
-                ].map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                      step > idx + 1 ? 'bg-green-500' : 'bg-gray-200'
-                    }`}>
-                      {step > idx + 1 && <CheckCircle className="w-4 h-4 text-white" />}
+            {/* Chat Area */}
+            <div className="lg:col-span-2">
+              <div className="bg-white/60 backdrop-blur-xl border border-white/70 rounded-2xl shadow-xl overflow-hidden h-[600px] flex flex-col">
+                {/* Chat Header */}
+                <div className="bg-gradient-to-r from-blue-600 to-cyan-600 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                      <Bot className="w-6 h-6 text-white" />
                     </div>
-                    <span className={`text-sm ${step > idx + 1 ? 'text-gray-600 line-through' : 'text-gray-800'}`}>
-                      {item}
-                    </span>
+                    <div>
+                      <h3 className="font-semibold text-white">{language === 'ru' ? 'AI Консультант' : 'AI Consultant'}</h3>
+                      <p className="text-white/70 text-sm">{language === 'ru' ? 'Готов помочь с поступлением' : 'Ready to help with admission'}</p>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
 
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-2xl p-6">
-              <Award className="w-8 h-8 text-blue-600 mb-3" />
-              <h3 className="font-bold text-gray-800 mb-2">Полезные советы</h3>
-              <ul className="text-sm text-gray-600 space-y-2">
-                <li>• Подавайте документы в несколько вузов</li>
-                <li>• Изучите требования к поступлению заранее</li>
-                <li>• Подготовьте портфолио достижений</li>
-              </ul>
+                {/* Messages */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        message.role === 'user'
+                          ? 'bg-blue-600'
+                          : 'bg-gradient-to-br from-blue-500 to-cyan-500'
+                      }`}>
+                        {message.role === 'user' ? (
+                          <User className="w-5 h-5 text-white" />
+                        ) : (
+                          <Bot className="w-5 h-5 text-white" />
+                        )}
+                      </div>
+                      <div
+                        className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                          message.role === 'user'
+                            ? 'bg-blue-600 text-white rounded-tr-none'
+                            : 'bg-gray-100 text-gray-800 rounded-tl-none'
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {isLoading && (
+                    <div className="flex gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                        <Bot className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="bg-gray-100 rounded-2xl rounded-tl-none px-4 py-3">
+                        <div className="flex items-center gap-2 text-gray-500">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span className="text-sm">{texts.chat.thinking}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {/* Input */}
+                <div className="p-4 border-t border-gray-200 bg-white/50">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={inputMessage}
+                      onChange={(e) => setInputMessage(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage(inputMessage)}
+                      placeholder={texts.chat.placeholder}
+                      className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={isLoading}
+                    />
+                    <button
+                      onClick={() => sendMessage(inputMessage)}
+                      disabled={isLoading || !inputMessage.trim()}
+                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Send className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }
 
 export default AdmissionHelper;
-

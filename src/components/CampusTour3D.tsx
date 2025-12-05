@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Play, Pause, Maximize2, Minimize2, RotateCw, MapPin, Building2, GraduationCap, BookOpen, Users, Camera, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useLanguage } from '../i18n';
 
 interface Tour {
   id: string;
@@ -92,6 +93,7 @@ const tours: Tour[] = [
 ];
 
 function CampusTour3D() {
+  const { t, language } = useLanguage();
   const [selectedTour, setSelectedTour] = useState<Tour | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -101,6 +103,80 @@ function CampusTour3D() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0);
   const [showLocationsPanel, setShowLocationsPanel] = useState(false);
+
+  // Переводы университетов
+  const universityNames: Record<string, string> = {
+    'Назарбаев Университет': language === 'en' ? 'Nazarbayev University' : 'Назарбаев Университет',
+    'КазНУ им. аль-Фараби': language === 'en' ? 'Al-Farabi Kazakh National University' : 'КазНУ им. аль-Фараби',
+    'КБТУ': language === 'en' ? 'Kazakh-British Technical University' : 'КБТУ',
+    'КазНТУ им. Сатпаева': language === 'en' ? 'Satbayev University' : 'КазНТУ им. Сатпаева',
+    'ЕНУ им. Л.Н. Гумилёва': language === 'en' ? 'L.N. Gumilyov Eurasian National University' : 'ЕНУ им. Л.Н. Гумилёва',
+  };
+
+  // Переводы городов
+  const cityNames: Record<string, string> = {
+    'Астана': language === 'en' ? 'Astana' : 'Астана',
+    'Алматы': language === 'en' ? 'Almaty' : 'Алматы',
+  };
+
+  // Переводы локаций
+  const locationNames: Record<string, string> = {
+    'Главный корпус': t.tour3d.locations.mainBuilding,
+    'Кампус': t.tour3d.locations.campus,
+    'Главный вход': t.tour3d.locations.mainEntrance,
+    'Библиотека': t.tour3d.locations.library,
+    'Исследовательский центр': t.tour3d.locations.researchCenter,
+    'Аудитории': t.tour3d.locations.classrooms,
+    'Библиотека аль-Фараби': t.tour3d.locations.alFarabiLibrary,
+    'Главное здание': language === 'en' ? 'Main Building' : 'Главное здание',
+    'Спортивный комплекс': t.tour3d.locations.sportsComplex,
+    'Технические лаборатории': t.tour3d.locations.techLabs,
+    'Инновационный центр': t.tour3d.locations.innovationCenter,
+    'Горный музей': t.tour3d.locations.miningMuseum,
+    'Инженерные лаборатории': t.tour3d.locations.engineeringLabs,
+    'Студенческий городок': t.tour3d.locations.studentTown,
+  };
+
+  // Переводы описаний
+  const descriptionTranslations: Record<string, string> = {
+    'Виртуальный тур по главному корпусу Назарбаев Университета. Исследуйте современные аудитории, библиотеку и исследовательские центры.': 
+      language === 'en' ? 'Virtual tour of Nazarbayev University main building. Explore modern classrooms, library, and research centers.' : 'Виртуальный тур по главному корпусу Назарбаев Университета. Исследуйте современные аудитории, библиотеку и исследовательские центры.',
+    'Погрузитесь в атмосферу одного из старейших и крупнейших университетов Казахстана. Исследуйте исторические здания и современные кампусы.':
+      language === 'en' ? 'Immerse yourself in the atmosphere of one of the oldest and largest universities in Kazakhstan. Explore historic buildings and modern campuses.' : 'Погрузитесь в атмосферу одного из старейших и крупнейших университетов Казахстана. Исследуйте исторические здания и современные кампусы.',
+    'Современный технический университет с передовыми лабораториями и инновационными пространствами для обучения.':
+      language === 'en' ? 'A modern technical university with advanced laboratories and innovative learning spaces.' : 'Современный технический университет с передовыми лабораториями и инновационными пространствами для обучения.',
+    'Виртуальный тур по техническому университету с богатой историей и современной инфраструктурой.':
+      language === 'en' ? 'Virtual tour of a technical university with rich history and modern infrastructure.' : 'Виртуальный тур по техническому университету с богатой историей и современной инфраструктурой.',
+    'Исследуйте кампус Евразийского национального университета - одного из ведущих вузов столицы.':
+      language === 'en' ? 'Explore the campus of Eurasian National University - one of the leading universities of the capital.' : 'Исследуйте кампус Евразийского национального университета - одного из ведущих вузов столицы.',
+  };
+
+  // Переводы описаний хотспотов
+  const hotspotDescriptions: Record<string, string> = {
+    'Входная группа с информационным центром': language === 'en' ? 'Entrance with information center' : 'Входная группа с информационным центром',
+    'Современная библиотека с читальными залами': language === 'en' ? 'Modern library with reading rooms' : 'Современная библиотека с читальными залами',
+    'Лаборатории и научные центры': language === 'en' ? 'Laboratories and research centers' : 'Лаборатории и научные центры',
+    'Современные лекционные залы': language === 'en' ? 'Modern lecture halls' : 'Современные лекционные залы',
+    'Историческое здание университета': language === 'en' ? 'Historic university building' : 'Историческое здание университета',
+    'Крупнейшая библиотека университета': language === 'en' ? 'Largest university library' : 'Крупнейшая библиотека университета',
+    'Современные спортивные залы': language === 'en' ? 'Modern sports facilities' : 'Современные спортивные залы',
+    'Современное оборудование для исследований': language === 'en' ? 'Modern research equipment' : 'Современное оборудование для исследований',
+    'Центр технологических инноваций': language === 'en' ? 'Technology innovation center' : 'Центр технологических инноваций',
+    'Уникальная коллекция минералов': language === 'en' ? 'Unique mineral collection' : 'Уникальная коллекция минералов',
+    'Лаборатории для практических занятий': language === 'en' ? 'Laboratories for practical classes' : 'Лаборатории для практических занятий',
+    'Центральное здание университета': language === 'en' ? 'Central university building' : 'Центральное здание университета',
+    'Общежития и студенческие пространства': language === 'en' ? 'Dormitories and student spaces' : 'Общежития и студенческие пространства',
+  };
+
+  const getUniversityName = (name: string) => universityNames[name] || name;
+  const getCityName = (city: string) => cityNames[city] || city;
+  const getLocationName = (location: string) => locationNames[location] || location;
+  const getDescription = (desc: string) => descriptionTranslations[desc] || desc;
+  const getHotspotDescription = (desc: string) => hotspotDescriptions[desc] || desc;
+  const getDuration = (duration: string) => {
+    const num = duration.replace(/[^0-9]/g, '');
+    return `${num} ${t.tour3d.duration}`;
+  };
 
   const handleTourSelect = (tour: Tour) => {
     setSelectedTour(tour);
@@ -201,22 +277,22 @@ function CampusTour3D() {
                 <X className="w-5 h-5 text-white" />
               </button>
               <div>
-                <h2 className="text-2xl font-bold text-white">{selectedTour.university}</h2>
-                <p className="text-white/80 text-sm">{selectedTour.location} • {selectedTour.city}</p>
+                <h2 className="text-2xl font-bold text-white">{getUniversityName(selectedTour.university)}</h2>
+                <p className="text-white/80 text-sm">{getLocationName(selectedTour.location)} • {getCityName(selectedTour.city)}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <button
                 onClick={prevLocation}
                 className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
-                title="Предыдущая локация"
+                title={t.tour3d.viewer.previousLocation}
               >
                 <ChevronLeft className="w-5 h-5 text-white" />
               </button>
               <button
                 onClick={nextLocation}
                 className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
-                title="Следующая локация"
+                title={t.tour3d.viewer.nextLocation}
               >
                 <ChevronRight className="w-5 h-5 text-white" />
               </button>
@@ -273,7 +349,7 @@ function CampusTour3D() {
             >
               <div className="w-3 h-3 bg-white rounded-full"></div>
               <div className="absolute bottom-full mb-2 px-3 py-1 bg-black/80 backdrop-blur-md rounded-lg text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                {hotspot.name}
+                {getLocationName(hotspot.name)}
               </div>
             </button>
           ))}
@@ -283,9 +359,9 @@ function CampusTour3D() {
             <div className="absolute top-24 right-6 bg-white/20 backdrop-blur-md rounded-xl p-3 text-white text-sm z-10">
               <div className="flex items-center gap-2 mb-2">
                 <MapPin className="w-4 h-4" />
-                <span className="font-semibold">Локация {currentLocationIndex + 1} из {selectedTour.hotspots.length}</span>
+                <span className="font-semibold">{t.tour3d.viewer.location} {currentLocationIndex + 1} {t.tour3d.viewer.locationOf} {selectedTour.hotspots.length}</span>
               </div>
-              <div className="text-xs opacity-80">{currentHotspot.name}</div>
+              <div className="text-xs opacity-80">{getLocationName(currentHotspot.name)}</div>
             </div>
           )}
 
@@ -310,13 +386,13 @@ function CampusTour3D() {
               {/* Hotspot Info */}
               {currentHotspot && (
                 <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-4 max-w-md mx-auto">
-                  <h3 className="font-bold text-gray-800 mb-1">{currentHotspot.name}</h3>
-                  <p className="text-sm text-gray-600">{currentHotspot.description}</p>
+                  <h3 className="font-bold text-gray-800 mb-1">{getLocationName(currentHotspot.name)}</h3>
+                  <p className="text-sm text-gray-600">{getHotspotDescription(currentHotspot.description)}</p>
                   <button
                     onClick={() => setCurrentHotspot(null)}
                     className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
                   >
-                    Закрыть
+                    {t.tour3d.viewer.close}
                   </button>
                 </div>
               )}
@@ -327,7 +403,7 @@ function CampusTour3D() {
           <div className="absolute top-1/2 left-6 transform -translate-y-1/2 z-10">
             <div className="bg-white/20 backdrop-blur-md rounded-xl p-4 text-white text-sm">
               <RotateCw className="w-5 h-5 mb-2" />
-              <p>Перетащите для<br />вращения</p>
+              <p>{t.tour3d.viewer.dragToRotate.split(' ').slice(0, 2).join(' ')}<br />{t.tour3d.viewer.dragToRotate.split(' ').slice(2).join(' ')}</p>
             </div>
           </div>
 
@@ -335,7 +411,7 @@ function CampusTour3D() {
           <button
             onClick={() => setShowLocationsPanel(!showLocationsPanel)}
             className="absolute bottom-24 right-6 w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 transition-colors z-10"
-            title="Список локаций"
+            title={t.tour3d.viewer.locationsList}
           >
             <Building2 className="w-5 h-5 text-white" />
           </button>
@@ -343,7 +419,7 @@ function CampusTour3D() {
           {showLocationsPanel && (
             <div className="absolute bottom-32 right-6 w-64 bg-white/90 backdrop-blur-xl rounded-2xl p-4 shadow-2xl z-20">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-bold text-gray-800">Локации</h3>
+                <h3 className="font-bold text-gray-800">{t.tour3d.viewer.locations}</h3>
                 <button
                   onClick={() => setShowLocationsPanel(false)}
                   className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-gray-800"
@@ -366,9 +442,9 @@ function CampusTour3D() {
                         : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
                     }`}
                   >
-                    <div className="font-semibold text-sm">{hotspot.name}</div>
+                    <div className="font-semibold text-sm">{getLocationName(hotspot.name)}</div>
                     <div className={`text-xs mt-1 ${currentLocationIndex === index ? 'text-white/80' : 'text-gray-600'}`}>
-                      {hotspot.description}
+                      {getHotspotDescription(hotspot.description)}
                     </div>
                   </button>
                 ))}
@@ -396,11 +472,10 @@ function CampusTour3D() {
               <Camera className="w-10 h-10 text-white" />
             </div>
             <h1 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-blue-700 to-cyan-600 bg-clip-text text-transparent">
-              3D-туры по кампусам
+              {t.tour3d.title}
             </h1>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Исследуйте университеты Казахстана в формате интерактивных виртуальных туров. 
-              Посетите кампусы, аудитории, библиотеки и лаборатории, не выходя из дома.
+              {t.tour3d.description}
             </p>
           </div>
         </div>
@@ -422,26 +497,26 @@ function CampusTour3D() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
                 <div className="absolute top-4 right-4 px-3 py-1 bg-white/90 backdrop-blur-md rounded-full text-xs font-semibold text-gray-800 flex items-center gap-2">
                   <Play className="w-3 h-3" />
-                  {tour.duration}
+                  {getDuration(tour.duration)}
                 </div>
                 <div className="absolute bottom-4 left-4 right-4">
-                  <h3 className="text-xl font-bold text-white mb-1">{tour.university}</h3>
+                  <h3 className="text-xl font-bold text-white mb-1">{getUniversityName(tour.university)}</h3>
                   <div className="flex items-center gap-2 text-white/90 text-sm">
                     <MapPin className="w-4 h-4" />
-                    <span>{tour.city} • {tour.location}</span>
+                    <span>{getCityName(tour.city)} • {getLocationName(tour.location)}</span>
                   </div>
                 </div>
               </div>
               <div className="p-6">
-                <p className="text-gray-600 text-sm leading-relaxed mb-4">{tour.description}</p>
+                <p className="text-gray-600 text-sm leading-relaxed mb-4">{getDescription(tour.description)}</p>
                 <div className="flex items-center gap-4 text-sm text-gray-500">
                   <div className="flex items-center gap-1">
                     <Building2 className="w-4 h-4" />
-                    <span>{tour.hotspots.length} точек</span>
+                    <span>{tour.hotspots.length} {t.tour3d.points}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Camera className="w-4 h-4" />
-                    <span>360° вид</span>
+                    <span>{t.tour3d.view360}</span>
                   </div>
                 </div>
               </div>
@@ -452,23 +527,23 @@ function CampusTour3D() {
 
         {/* Features Section */}
         <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-8 md:p-12 shadow-xl">
-          <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">Возможности виртуальных туров</h2>
+          <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">{t.tour3d.featuresTitle}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               {
                 icon: RotateCw,
-                title: '360° обзор',
-                description: 'Полноценный круговой обзор каждого помещения с возможностью вращения'
+                title: t.tour3d.features.view360.title,
+                description: t.tour3d.features.view360.description
               },
               {
                 icon: MapPin,
-                title: 'Интерактивные точки',
-                description: 'Переходите между различными локациями кампуса одним кликом'
+                title: t.tour3d.features.interactive.title,
+                description: t.tour3d.features.interactive.description
               },
               {
                 icon: Maximize2,
-                title: 'Полноэкранный режим',
-                description: 'Погрузитесь в атмосферу университета с полноэкранным просмотром'
+                title: t.tour3d.features.fullscreen.title,
+                description: t.tour3d.features.fullscreen.description
               }
             ].map((feature, index) => (
               <div key={index} className="text-center p-6 bg-white/60 backdrop-blur-md rounded-2xl">

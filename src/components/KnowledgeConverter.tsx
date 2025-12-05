@@ -1,11 +1,39 @@
-import { FileText, Upload, FileCheck, BookOpen, Image, File, Download, Sparkles, Wand2, Type } from 'lucide-react';
+import { FileText, Upload, FileCheck, BookOpen, Image, File, Sparkles, Wand2, Type, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import Header from './Header';
 import Footer from './Footer';
+import { useLanguage } from '../i18n';
+
+// Типы для результатов ИИ
+interface MindMapNode {
+  id: string;
+  content: string;
+  children?: MindMapNode[];
+}
+
+interface FlashCard {
+  question: string;
+  answer: string;
+}
+
+interface Note {
+  title: string;
+  content: string;
+}
+
+interface AIResult {
+  format: string;
+  summary?: string;
+  mindmap?: MindMapNode;
+  cards?: FlashCard[];
+  notes?: Note[];
+}
 
 function KnowledgeConverter() {
+  const { t, language } = useLanguage();
   const [selectedFormat, setSelectedFormat] = useState<'summary' | 'mindmap' | 'cards' | 'notes'>('summary');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState('');
   const [inputMode, setInputMode] = useState<'file' | 'text'>('file');
   const [textInput, setTextInput] = useState('');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -14,26 +42,26 @@ function KnowledgeConverter() {
     {
       id: 'summary' as const,
       icon: FileText,
-      title: 'Конспект',
-      description: 'Структурированный конспект с основными тезисами'
+      title: t.converter.formats.summary.title,
+      description: t.converter.formats.summary.description
     },
     {
       id: 'mindmap' as const,
       icon: Sparkles,
-      title: 'Mind Map',
-      description: 'Визуальная карта знаний с связями между понятиями'
+      title: t.converter.formats.mindmap.title,
+      description: t.converter.formats.mindmap.description
     },
     {
       id: 'cards' as const,
       icon: FileCheck,
-      title: 'Карточки',
-      description: 'Карточки для запоминания (flashcards)'
+      title: t.converter.formats.cards.title,
+      description: t.converter.formats.cards.description
     },
     {
       id: 'notes' as const,
       icon: BookOpen,
-      title: 'Заметки',
-      description: 'Краткие заметки с ключевыми моментами'
+      title: t.converter.formats.notes.title,
+      description: t.converter.formats.notes.description
     }
   ];
 
@@ -44,24 +72,180 @@ function KnowledgeConverter() {
     }
   };
 
-  const handleProcess = () => {
+  const handleProcess = async () => {
     if (inputMode === 'text' && !textInput.trim()) {
-      alert('Пожалуйста, введите текст для обработки');
+      alert(t.converter.alerts.enterText);
       return;
     }
     
     if (inputMode === 'file' && !uploadedFile) {
-      alert('Пожалуйста, загрузите файл для обработки');
+      alert(t.converter.alerts.uploadFile);
       return;
     }
     
     setIsProcessing(true);
-    // Симуляция обработки
-    setTimeout(() => {
+    setProcessingStatus(t.converter.analyzing + '...');
+    
+    try {
+      // Получаем текст для обработки
+      let contentToProcess = textInput;
+      
+      if (inputMode === 'file' && uploadedFile) {
+        // Читаем содержимое файла (для текстовых файлов)
+        if (uploadedFile.type === 'text/plain' || uploadedFile.name.endsWith('.txt')) {
+          contentToProcess = await uploadedFile.text();
+        } else {
+          // Для других файлов используем имя и тип как контекст
+          contentToProcess = `Файл: ${uploadedFile.name} (${uploadedFile.type}). Создай пример контента на тему, связанную с названием файла.`;
+        }
+      }
+      
+      setProcessingStatus(t.converter.generating);
+      
+      // Формируем промпт в зависимости от формата
+      const langInstruction = language === 'ru' ? 'на русском языке' : 'in English';
+      const prompts: Record<string, string> = {
+        summary: `Проанализируй следующий текст и создай структурированный конспект ${langInstruction}. Верни JSON в формате:
+{
+  "title": "Заголовок конспекта",
+  "sections": [
+    {
+      "heading": "Название раздела",
+      "content": "Содержимое раздела",
+      "keyPoints": ["Ключевой пункт 1", "Ключевой пункт 2"]
+    }
+  ],
+  "conclusion": "Заключение"
+}
+
+Текст для анализа:
+${contentToProcess}`,
+        
+        mindmap: `Проанализируй следующий текст и создай структуру mind map ${langInstruction}. Верни JSON в формате:
+{
+  "center": "Главная тема",
+  "branches": [
+    {
+      "title": "Ветка 1",
+      "color": "blue",
+      "children": [
+        {
+          "title": "Подтема 1.1",
+          "children": [
+            {"title": "Детали 1.1.1"},
+            {"title": "Детали 1.1.2"}
+          ]
+        },
+        {
+          "title": "Подтема 1.2",
+          "children": [
+            {"title": "Детали 1.2.1"},
+            {"title": "Детали 1.2.2"}
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+Создай 3-4 основные ветки, каждая с 2-3 подтемами, и у каждой подтемы 2 детали. Текст для анализа:
+${contentToProcess}`,
+        
+        cards: `Проанализируй следующий текст и создай карточки для запоминания (flashcards) ${langInstruction}. Верни JSON в формате:
+{
+  "cards": [
+    {
+      "question": "Вопрос",
+      "answer": "Ответ"
+    }
+  ]
+}
+
+Создай 8-12 карточек. Текст для анализа:
+${contentToProcess}`,
+        
+        notes: `Проанализируй следующий текст и создай краткие заметки ${langInstruction}. Верни JSON в формате:
+{
+  "notes": [
+    {
+      "title": "Заголовок заметки",
+      "content": "Содержимое заметки (2-3 предложения)",
+      "color": "blue"
+    }
+  ]
+}
+
+Создай 5-8 заметок с разными цветами (blue, cyan, green, purple, pink). Текст для анализа:
+${contentToProcess}`
+      };
+      
+      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+      
+      if (!apiKey) {
+        throw new Error(t.converter.alerts.apiKeyError);
+      }
+      
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: 'Ты помощник для создания учебных материалов. Всегда отвечай ТОЛЬКО валидным JSON без markdown разметки.'
+            },
+            {
+              role: 'user',
+              content: prompts[selectedFormat]
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 2000
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`${t.converter.alerts.apiError}: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const aiResponse = data.choices[0]?.message?.content;
+      
+      if (!aiResponse) {
+        throw new Error(t.converter.alerts.emptyResponse);
+      }
+      
+      // Парсим JSON ответ
+      let parsedResult;
+      try {
+        // Убираем возможные markdown блоки
+        const cleanJson = aiResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        parsedResult = JSON.parse(cleanJson);
+      } catch {
+        throw new Error(t.converter.alerts.parseError);
+      }
+      
+      // Сохраняем результат в localStorage для передачи на страницу результата
+      const result: AIResult = {
+        format: selectedFormat,
+        ...parsedResult
+      };
+      
+      localStorage.setItem('converterResult', JSON.stringify(result));
+      
       setIsProcessing(false);
       // Переход на страницу результата после обработки
       window.location.hash = `#converter-result?format=${selectedFormat}`;
-    }, 2000);
+      
+    } catch (error) {
+      console.error('Error processing:', error);
+      setIsProcessing(false);
+      alert(`${t.converter.alerts.apiError}: ${error instanceof Error ? error.message : t.converter.alerts.unknownError}`);
+    }
   };
 
   const isProcessDisabled = isProcessing || (inputMode === 'text' ? !textInput.trim() : !uploadedFile);
@@ -81,10 +265,10 @@ function KnowledgeConverter() {
           <div className="mb-8">
             <div className="text-center mb-12">
               <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-blue-700 to-cyan-600 bg-clip-text text-transparent">
-                Конвертер знаний
+                {t.converter.title}
               </h1>
               <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                Преобразуйте учебные материалы в удобный формат: конспекты, mind maps, карточки и заметки
+                {t.converter.description}
               </p>
             </div>
         </div>
@@ -104,7 +288,7 @@ function KnowledgeConverter() {
                   }`}
                 >
                   <Upload className="w-5 h-5" />
-                  Файл
+                  {t.converter.inputModes.file}
                 </button>
                 <button
                   onClick={() => setInputMode('text')}
@@ -115,13 +299,13 @@ function KnowledgeConverter() {
                   }`}
                 >
                   <Type className="w-5 h-5" />
-                  Текст
+                  {t.converter.inputModes.text}
                 </button>
               </div>
 
               {inputMode === 'file' ? (
                 <>
-                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Загрузите документ</h2>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-6">{t.converter.uploadTitle}</h2>
                   
                   {/* Upload Area */}
                   <div className="border-2 border-dashed border-gray-300 rounded-2xl p-12 text-center hover:border-blue-500 transition-colors mb-6 relative">
@@ -134,12 +318,12 @@ function KnowledgeConverter() {
                     />
                     <label htmlFor="file-upload" className="cursor-pointer block">
                       <Upload className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                      <p className="text-lg font-semibold text-gray-700 mb-2">Перетащите файл сюда</p>
-                      <p className="text-sm text-gray-500 mb-4">или</p>
+                      <p className="text-lg font-semibold text-gray-700 mb-2">{t.converter.dragHere}</p>
+                      <p className="text-sm text-gray-500 mb-4">{t.converter.or}</p>
                       <span className="inline-block px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all duration-300">
-                        Выбрать файл
+                        {t.converter.selectFile}
                       </span>
-                      <p className="text-xs text-gray-500 mt-4">Поддерживаются: PDF, DOCX, TXT, изображения</p>
+                      <p className="text-xs text-gray-500 mt-4">{t.converter.supportedFormats}</p>
                     </label>
                     {uploadedFile && (
                       <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -158,7 +342,7 @@ function KnowledgeConverter() {
                             }}
                             className="text-red-600 hover:text-red-700 text-sm font-medium"
                           >
-                            Удалить
+                            {t.converter.remove}
                           </button>
                         </div>
                       </div>
@@ -170,7 +354,7 @@ function KnowledgeConverter() {
                     {[
                       { icon: File, label: 'PDF', color: 'from-red-500 to-red-600' },
                       { icon: FileText, label: 'DOCX', color: 'from-blue-500 to-blue-600' },
-                      { icon: Image, label: 'Изображение', color: 'from-green-500 to-green-600' }
+                      { icon: Image, label: t.converter.fileTypes.image, color: 'from-green-500 to-green-600' }
                     ].map((type, idx) => (
                       <div
                         key={idx}
@@ -184,22 +368,22 @@ function KnowledgeConverter() {
                 </>
               ) : (
                 <>
-                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Введите текст</h2>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-6">{t.converter.textTitle}</h2>
                   
                   <textarea
                     value={textInput}
                     onChange={(e) => setTextInput(e.target.value)}
-                    placeholder="Вставьте или введите текст для обработки..."
+                    placeholder={t.converter.textPlaceholder}
                     className="w-full h-64 px-4 py-3 bg-white/60 backdrop-blur-md border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-gray-800 placeholder-gray-400"
                   />
                   
                   <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
-                    <span>Символов: {textInput.length}</span>
+                    <span>{t.converter.characters}: {textInput.length}</span>
                     <button
                       onClick={() => setTextInput('')}
                       className="text-blue-600 hover:text-blue-700 font-medium"
                     >
-                      Очистить
+                      {t.converter.clear}
                     </button>
                   </div>
                 </>
@@ -210,12 +394,12 @@ function KnowledgeConverter() {
             {isProcessing && (
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center animate-spin">
-                    <Sparkles className="w-6 h-6 text-white" />
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 text-white animate-spin" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800">Обработка документа...</h3>
-                    <p className="text-sm text-gray-600">Анализируем содержимое и извлекаем ключевую информацию</p>
+                    <h3 className="font-bold text-gray-800">{t.converter.processingAI}</h3>
+                    <p className="text-sm text-gray-600">{processingStatus || t.converter.analyzing}</p>
                   </div>
                 </div>
               </div>
@@ -225,7 +409,7 @@ function KnowledgeConverter() {
           {/* Format Selection */}
           <div className="space-y-6">
             <div className="bg-white/60 backdrop-blur-xl border border-white/70 rounded-3xl shadow-2xl p-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">Выберите формат</h2>
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">{t.converter.selectFormat}</h2>
               
               <div className="space-y-4">
                 {formats.map((format) => (
@@ -274,12 +458,12 @@ function KnowledgeConverter() {
                 {isProcessing ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Обработка...
+                    {t.converter.processing}
                   </>
                 ) : (
                   <>
                     <Wand2 className="w-5 h-5" />
-                    Преобразовать
+                    {t.converter.convert}
                   </>
                 )}
               </button>
@@ -290,23 +474,23 @@ function KnowledgeConverter() {
 
         {/* Features */}
         <div className="mt-12 bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-8 md:p-12 shadow-xl">
-          <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">Возможности</h2>
+          <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">{t.converter.featuresTitle}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               {
                 icon: FileText,
-                title: 'Анализ документов',
-                description: 'Автоматический анализ PDF, Word и других форматов'
+                title: t.converter.features.analysis.title,
+                description: t.converter.features.analysis.description
               },
               {
                 icon: BookOpen,
-                title: 'Работа с учебниками',
-                description: 'Извлечение ключевой информации из учебных материалов'
+                title: t.converter.features.textbooks.title,
+                description: t.converter.features.textbooks.description
               },
               {
                 icon: Sparkles,
-                title: 'Умная обработка',
-                description: 'AI определяет важные концепции и создаёт структурированный контент'
+                title: t.converter.features.smart.title,
+                description: t.converter.features.smart.description
               }
             ].map((feature, index) => (
               <div key={index} className="text-center p-6 bg-white/60 backdrop-blur-md rounded-2xl">

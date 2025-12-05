@@ -1,5 +1,6 @@
 import { useState, Fragment } from 'react';
 import { Search, X, GitCompare } from 'lucide-react';
+import { useLanguage } from '../i18n';
 
 interface University {
   id: string;
@@ -104,9 +105,44 @@ const universities: University[] = [
 ];
 
 function Compare() {
+  const { t, language } = useLanguage();
   const [selectedUniversities, setSelectedUniversities] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+
+  // Переводы для названий университетов
+  const universityNames: Record<string, string> = {
+    'Назарбаев Университет': language === 'en' ? 'Nazarbayev University' : 'Назарбаев Университет',
+    'КазНУ им. аль-Фараби': language === 'en' ? 'Al-Farabi Kazakh National University' : 'КазНУ им. аль-Фараби',
+    'КБТУ': language === 'en' ? 'Kazakh-British Technical University' : 'КБТУ',
+    'КазНТУ им. Сатпаева': language === 'en' ? 'Satbayev University' : 'КазНТУ им. Сатпаева',
+    'КазУМОиМЯ им. Абылай хана': language === 'en' ? 'Ablai Khan University' : 'КазУМОиМЯ им. Абылай хана',
+    'ЕНУ им. Л.Н. Гумилёва': language === 'en' ? 'L.N. Gumilyov Eurasian National University' : 'ЕНУ им. Л.Н. Гумилёва',
+  };
+
+  // Переводы для типов
+  const typeTranslations: Record<string, string> = {
+    'Национальный': t.compare.types.national,
+    'Технический': t.compare.types.technical,
+    'Гуманитарный': t.compare.types.humanitarian,
+  };
+
+  // Переводы для языков
+  const langTranslations: Record<string, string> = {
+    'Казахский': t.compare.languages.kazakh,
+    'Русский': t.compare.languages.russian,
+    'Английский': t.compare.languages.english,
+    'Китайский': t.compare.languages.chinese,
+  };
+
+  // Переводы для городов
+  const cityTranslations: Record<string, string> = {
+    'Астана': language === 'en' ? 'Astana' : 'Астана',
+    'Алматы': language === 'en' ? 'Almaty' : 'Алматы',
+  };
+
+  // Функция для получения переведённого имени университета
+  const getUniversityName = (name: string) => universityNames[name] || name;
 
   const filteredUniversities = universities.filter(uni =>
     uni.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -129,30 +165,46 @@ function Compare() {
 
   const comparisonCategories = [
     {
-      title: 'Общая информация',
+      title: t.compare.categories.general,
       fields: [
-        { label: 'Город', key: 'city' },
-        { label: 'Тип', key: 'type' },
-        { label: 'Год основания', key: 'founded' },
-        { label: 'Количество студентов', key: 'students' },
-        { label: 'Рейтинг', key: 'rating' }
+        { label: t.compare.fields.city, key: 'city' },
+        { label: t.compare.fields.type, key: 'type' },
+        { label: t.compare.fields.founded, key: 'founded' },
+        { label: t.compare.fields.students, key: 'students' },
+        { label: t.compare.fields.rating, key: 'rating' }
       ]
     },
     {
-      title: 'Образование',
+      title: t.compare.categories.education,
       fields: [
-        { label: 'Количество программ', key: 'programs' },
-        { label: 'Языки обучения', key: 'languages' }
+        { label: t.compare.fields.programs, key: 'programs' },
+        { label: t.compare.fields.languages, key: 'languages' }
       ]
     },
     {
-      title: 'Финансы',
+      title: t.compare.categories.finance,
       fields: [
-        { label: 'Стоимость обучения', key: 'tuition' },
-        { label: 'Гранты и стипендии', key: 'grants' }
+        { label: t.compare.fields.tuition, key: 'tuition' },
+        { label: t.compare.fields.grants, key: 'grants' }
       ]
     }
   ];
+
+  // Функция для получения переведённого значения
+  const getTranslatedValue = (uni: University, key: string) => {
+    if (key === 'city') return cityTranslations[uni.city] || uni.city;
+    if (key === 'type') return typeTranslations[uni.type] || uni.type;
+    if (key === 'languages') {
+      return uni.languages.map(lang => langTranslations[lang] || lang);
+    }
+    if (key === 'tuition' && language === 'en') {
+      return uni.tuition.replace('От', 'From').replace('₸', '₸');
+    }
+    if (key === 'grants' && language === 'en') {
+      return uni.grants.replace('До', 'Up to');
+    }
+    return uni[key as keyof University];
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -161,10 +213,10 @@ function Compare() {
         <div className="mb-12">
           <div className="text-center">
             <h1 className="text-4xl md:text-5xl font-bold mb-3 text-gray-900">
-              Сравнение университетов
+              {t.compare.title}
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Сравните до 4 университетов по ключевым параметрам
+              {t.compare.subtitle}
             </p>
           </div>
         </div>
@@ -184,8 +236,8 @@ function Compare() {
                   <X className="w-3 h-3" />
                 </button>
                 <div>
-                  <h3 className="font-semibold text-gray-900 text-sm mb-1 leading-tight">{uni.name}</h3>
-                  <p className="text-xs text-gray-500">{uni.city}</p>
+                  <h3 className="font-semibold text-gray-900 text-sm mb-1 leading-tight">{getUniversityName(uni.name)}</h3>
+                  <p className="text-xs text-gray-500">{cityTranslations[uni.city] || uni.city}</p>
                 </div>
               </div>
             ))}
@@ -201,7 +253,7 @@ function Compare() {
               >
                 <Search className={selectedUniversities.length === 0 ? 'w-5 h-5' : 'w-4 h-4 text-gray-400'} />
                 <span className={selectedUniversities.length === 0 ? 'text-base font-semibold' : 'text-sm font-medium text-gray-700'}>
-                  {selectedUniversities.length === 0 ? 'Добавить вуз' : 'Добавить'}
+                  {selectedUniversities.length === 0 ? t.compare.addUniversity : t.compare.add}
                 </span>
               </button>
             )}
@@ -217,7 +269,7 @@ function Compare() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Поиск университета..."
+                placeholder={t.compare.searchPlaceholder}
                 className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -230,8 +282,8 @@ function Compare() {
                     onClick={() => addUniversity(uni.id)}
                     className="w-full text-left p-3 hover:bg-gray-50 rounded-lg transition-colors"
                   >
-                    <div className="font-medium text-gray-900">{uni.name}</div>
-                    <div className="text-sm text-gray-500">{uni.city}</div>
+                    <div className="font-medium text-gray-900">{getUniversityName(uni.name)}</div>
+                    <div className="text-sm text-gray-500">{cityTranslations[uni.city] || uni.city}</div>
                   </button>
                 ))}
             </div>
@@ -246,12 +298,12 @@ function Compare() {
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="px-6 py-4 text-left text-gray-900 font-semibold sticky left-0 bg-gray-50 z-10 min-w-[220px]">
-                      Параметр
+                      {t.compare.parameter}
                     </th>
                     {selectedUnis.map((uni) => (
                       <th key={uni.id} className="px-6 py-4 text-center text-gray-900 font-semibold min-w-[200px]">
-                        <div className="text-sm leading-tight">{uni.name}</div>
-                        <div className="text-xs font-normal text-gray-500 mt-1">{uni.city}</div>
+                        <div className="text-sm leading-tight">{getUniversityName(uni.name)}</div>
+                        <div className="text-xs font-normal text-gray-500 mt-1">{cityTranslations[uni.city] || uni.city}</div>
                       </th>
                     ))}
                   </tr>
@@ -272,26 +324,29 @@ function Compare() {
                           <td className="px-6 py-4 sticky left-0 bg-white z-10">
                             <span className="font-medium text-gray-700">{field.label}</span>
                           </td>
-                          {selectedUnis.map((uni) => (
-                            <td key={uni.id} className="px-6 py-4 text-center text-gray-900">
-                              {field.key === 'languages' ? (
-                                <div className="flex flex-wrap gap-1.5 justify-center">
-                                  {(uni[field.key as keyof University] as string[]).map((lang, i) => (
-                                    <span
-                                      key={i}
-                                      className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs"
-                                    >
-                                      {lang}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : field.key === 'rating' ? (
-                                <span className="font-semibold">{uni[field.key as keyof University] as string | number}</span>
-                              ) : (
-                                <span>{uni[field.key as keyof University] as string | number}</span>
-                              )}
-                            </td>
-                          ))}
+                          {selectedUnis.map((uni) => {
+                            const value = getTranslatedValue(uni, field.key);
+                            return (
+                              <td key={uni.id} className="px-6 py-4 text-center text-gray-900">
+                                {field.key === 'languages' ? (
+                                  <div className="flex flex-wrap gap-1.5 justify-center">
+                                    {(value as string[]).map((lang, i) => (
+                                      <span
+                                        key={i}
+                                        className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs"
+                                      >
+                                        {lang}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : field.key === 'rating' ? (
+                                  <span className="font-semibold">{value as string | number}</span>
+                                ) : (
+                                  <span>{value as string | number}</span>
+                                )}
+                              </td>
+                            );
+                          })}
                         </tr>
                       ))}
                     </Fragment>
