@@ -108,21 +108,6 @@ function setToCache<T>(key: string, data: T): void {
   }
 }
 
-// Wikipedia API for basic university info
-async function fetchWikipediaData(universityName: string): Promise<string | null> {
-  try {
-    const searchUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(universityName)}`;
-    const response = await fetch(searchUrl);
-    if (response.ok) {
-      const data = await response.json();
-      return data.extract || null;
-    }
-  } catch (e) {
-    console.error('Wikipedia API error:', e);
-  }
-  return null;
-}
-
 // OpenAI API for detailed information
 async function fetchFromAI(prompt: string, language: 'ru' | 'en' = 'ru'): Promise<string | null> {
   const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
@@ -143,7 +128,7 @@ async function fetchFromAI(prompt: string, language: 'ru' | 'en' = 'ru'): Promis
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -154,7 +139,7 @@ async function fetchFromAI(prompt: string, language: 'ru' | 'en' = 'ru'): Promis
           { role: 'user', content: prompt }
         ],
         temperature: 0.3,
-        max_tokens: 3000
+        max_tokens: 4000
       })
     });
 
@@ -187,14 +172,14 @@ export async function fetchUniversities(language: 'ru' | 'en' = 'ru'): Promise<U
   if (cached) return cached;
 
   const prompt = language === 'ru' 
-    ? `Предоставь информацию о 6 главных университетах Казахстана в формате JSON массива:
+    ? `Предоставь информацию о 9 главных университетах Казахстана в формате JSON массива:
 [{
   "id": "уникальный_id",
   "name": "Название на русском",
   "nameEn": "Name in English",
   "city": "Город на русском",
   "cityEn": "City in English",
-  "type": "Тип вуза (Национальный/Технический/Частный)",
+  "type": "Тип вуза (Национальный/Технический/Частный/Медицинский/Педагогический)",
   "typeEn": "Type in English",
   "founded": год_основания_число,
   "rector": "ФИО ректора",
@@ -207,10 +192,10 @@ export async function fetchUniversities(language: 'ru' | 'en' = 'ru'): Promise<U
   "achievements": ["Достижение 1", "Достижение 2", "Достижение 3"],
   "achievementsEn": ["Achievement 1", "Achievement 2", "Achievement 3"],
   "website": "официальный сайт",
-  "rating": рейтинг_от_8_до_10
+  "rating": рейтинг_от_7_до_10
 }]
-Включи: Назарбаев Университет, КазНУ им. аль-Фараби, КБТУ, КазНТУ им. Сатпаева, ЕНУ им. Гумилёва, КИМЭП.`
-    : `Provide information about 6 main universities of Kazakhstan in JSON array format:
+Включи: Назарбаев Университет, КазНУ им. аль-Фараби, КБТУ, КазНТУ им. Сатпаева, ЕНУ им. Гумилёва, КИМЭП, МУИТ, SDU, КазНМУ.`
+    : `Provide information about 9 main universities of Kazakhstan in JSON array format:
 [{
   "id": "unique_id",
   "name": "Name in Russian",
@@ -218,7 +203,7 @@ export async function fetchUniversities(language: 'ru' | 'en' = 'ru'): Promise<U
   "city": "City in Russian",
   "cityEn": "City in English",
   "type": "Type in Russian",
-  "typeEn": "Type (National/Technical/Private)",
+  "typeEn": "Type (National/Technical/Private/Medical/Pedagogical)",
   "founded": year_number,
   "rector": "Rector name in Russian",
   "rectorEn": "Rector name in English",
@@ -230,9 +215,9 @@ export async function fetchUniversities(language: 'ru' | 'en' = 'ru'): Promise<U
   "achievements": ["Achievement 1 RU", "Achievement 2 RU", "Achievement 3 RU"],
   "achievementsEn": ["Achievement 1", "Achievement 2", "Achievement 3"],
   "website": "official website",
-  "rating": rating_from_8_to_10
+  "rating": rating_from_7_to_10
 }]
-Include: Nazarbayev University, Al-Farabi KazNU, KBTU, Satbayev University, ENU, KIMEP.`;
+Include: Nazarbayev University, Al-Farabi KazNU, KBTU, Satbayev University, ENU, KIMEP, IITU, SDU, KazNMU.`;
 
   const aiResponse = await fetchFromAI(prompt, language);
   
@@ -256,18 +241,59 @@ Include: Nazarbayev University, Al-Farabi KazNU, KBTU, Satbayev University, ENU,
       console.log('📝 Parsing universities JSON...');
       const universities: UniversityData[] = JSON.parse(cleanResponse);
       
-      // Add placeholder images
-      const images = [
-        'https://images.unsplash.com/photo-1562774053-701939374585?w=800',
-        'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800',
-        'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=800',
-        'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800',
-        'https://images.unsplash.com/photo-1571260899304-425eee4c6efc?w=800',
-        'https://images.unsplash.com/photo-1592280771190-3e2e4d571952?w=800'
+      // Local university images from public/images folder
+      const universityImages: Record<string, string> = {
+        // Nazarbayev University
+        'nazarbayev': '/images/NU_Building.JPG',
+        'nu': '/images/NU_Building.JPG',
+        
+        // Al-Farabi KazNU
+        'казну': '/images/Al-Farabi_KazNU_rektorat.jpg',
+        'farabi': '/images/Al-Farabi_KazNU_rektorat.jpg',
+        'фараби': '/images/Al-Farabi_KazNU_rektorat.jpg',
+        
+        // KBTU
+        'кбту': '/images/kbtu_front_build.jpg',
+        'kbtu': '/images/kbtu_front_build.jpg',
+        'british': '/images/kbtu_front_build.jpg',
+        
+        // Satbayev University (KazNTU)
+        'сатпаев': '/images/Satpaev_Kazakh_National_Technical_University_in_Almaty.jpeg',
+        'satbayev': '/images/Satpaev_Kazakh_National_Technical_University_in_Almaty.jpeg',
+        'казнту': '/images/Satpaev_Kazakh_National_Technical_University_in_Almaty.jpeg',
+        
+        // ENU (L.N. Gumilyov Eurasian National University)
+        'гумилёв': '/images/L.N.Gumilyov_Eurasian_National_University.jpeg',
+        'gumilyov': '/images/L.N.Gumilyov_Eurasian_National_University.jpeg',
+        'гумилев': '/images/L.N.Gumilyov_Eurasian_National_University.jpeg',
+        'ену': '/images/L.N.Gumilyov_Eurasian_National_University.jpeg',
+        'enu': '/images/L.N.Gumilyov_Eurasian_National_University.jpeg',
+        'eurasian': '/images/L.N.Gumilyov_Eurasian_National_University.jpeg',
+      };
+      
+      // Fallback images for universities without local photos
+      const fallbackImages = [
+        'https://images.unsplash.com/photo-1562774053-701939374585?w=800&q=80',
+        'https://images.unsplash.com/photo-1607237138185-eedd9c632b0b?w=800&q=80',
+        'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800&q=80',
+        'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80',
+        'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800&q=80',
       ];
       
       universities.forEach((uni, idx) => {
-        uni.image = images[idx % images.length];
+        const nameLower = (uni.name + ' ' + uni.nameEn).toLowerCase();
+        let matchedImage: string | null = null;
+        
+        // Try to match by university name
+        for (const [key, imageUrl] of Object.entries(universityImages)) {
+          if (nameLower.includes(key.toLowerCase())) {
+            matchedImage = imageUrl;
+            break;
+          }
+        }
+        
+        // Use matched local image or fallback
+        uni.image = matchedImage || fallbackImages[idx % fallbackImages.length];
       });
       
       console.log(`✅ Loaded ${universities.length} universities`);
@@ -289,7 +315,7 @@ export async function fetchAcademicPrograms(language: 'ru' | 'en' = 'ru'): Promi
   if (cached) return cached;
 
   const prompt = language === 'ru'
-    ? `Предоставь информацию о 8 популярных образовательных программах в университетах Казахстана в формате JSON массива:
+    ? `Предоставь информацию о 10 популярных образовательных программах в университетах Казахстана в формате JSON массива:
 [{
   "id": "уникальный_id",
   "name": "Название программы на русском",
@@ -310,11 +336,11 @@ export async function fetchAcademicPrograms(language: 'ru' | 'en' = 'ru'): Promi
   "specializationsEn": ["Specialization 1", "Specialization 2", "Specialization 3"],
   "careers": ["Карьера 1", "Карьера 2", "Карьера 3"],
   "careersEn": ["Career 1", "Career 2", "Career 3"],
-  "category": "Категория (IT и технологии/Медицина/Бизнес/Инженерия/Гуманитарные науки)",
+  "category": "Категория (IT и технологии/Медицина/Бизнес и экономика/Инженерия/Гуманитарные науки/Естественные науки/Право)",
   "categoryEn": "Category in English"
 }]
-Включи разные направления: IT, медицина, бизнес, инженерия, право, международные отношения.`
-    : `Provide information about 8 popular educational programs at Kazakhstan universities in JSON array format:
+Включи: Computer Science, Data Science, Медицина, MBA, Нефтегазовое дело, Право, Международные отношения, Инженерия, Финансы, Биология. Разные университеты.`
+    : `Provide information about 10 popular educational programs at Kazakhstan universities in JSON array format:
 [{
   "id": "unique_id",
   "name": "Program name in Russian",
@@ -336,9 +362,9 @@ export async function fetchAcademicPrograms(language: 'ru' | 'en' = 'ru'): Promi
   "careers": ["Career 1 RU", "Career 2 RU", "Career 3 RU"],
   "careersEn": ["Career 1", "Career 2", "Career 3"],
   "category": "Category in Russian",
-  "categoryEn": "Category (IT & Technology/Medicine/Business/Engineering/Humanities)"
+  "categoryEn": "Category (IT & Technology/Medicine/Business & Economics/Engineering/Humanities/Natural Sciences/Law)"
 }]
-Include different fields: IT, medicine, business, engineering, law, international relations.`;
+Include: Computer Science, Data Science, Medicine, MBA, Oil & Gas, Law, International Relations, Engineering, Finance, Biology. Different universities.`;
 
   const aiResponse = await fetchFromAI(prompt, language);
   
@@ -376,13 +402,13 @@ export async function fetchExchangePrograms(language: 'ru' | 'en' = 'ru'): Promi
   if (cached) return cached;
 
   const prompt = language === 'ru'
-    ? `Предоставь информацию о 6 реальных программах международного обмена для студентов Казахстана в формате JSON массива:
+    ? `Предоставь информацию о 8 реальных программах международного обмена для студентов Казахстана в формате JSON массива:
 [{
   "id": "уникальный_id",
   "name": "Название программы на русском",
   "nameEn": "Program name in English",
-  "type": "Тип (Обмен/Стажировка/Магистратура)",
-  "typeEn": "Type (Exchange/Internship/Master's)",
+  "type": "Тип (Обмен/Стажировка/Магистратура/Докторантура/Летняя школа)",
+  "typeEn": "Type (Exchange/Internship/Master's/PhD/Summer School)",
   "country": "Страна на русском",
   "countryEn": "Country in English",
   "partnerUniversity": "Партнёрский университет на русском",
@@ -401,14 +427,14 @@ export async function fetchExchangePrograms(language: 'ru' | 'en' = 'ru'): Promi
   "fundingEn": "Full/Partial",
   "flag": "эмодзи флага страны"
 }]
-Включи реальные программы: Erasmus+, DAAD, Fulbright, Bolashak, MEXT (Япония), Korean Government Scholarship.`
-    : `Provide information about 6 real international exchange programs for Kazakhstan students in JSON array format:
+Включи: Erasmus+, DAAD, Fulbright, Bolashak, MEXT (Япония), Korean Government Scholarship, Chevening, Türkiye Burslari.`
+    : `Provide information about 8 real international exchange programs for Kazakhstan students in JSON array format:
 [{
   "id": "unique_id",
   "name": "Program name in Russian",
   "nameEn": "Program name in English",
   "type": "Type in Russian",
-  "typeEn": "Type (Exchange/Internship/Master's)",
+  "typeEn": "Type (Exchange/Internship/Master's/PhD/Summer School)",
   "country": "Country in Russian",
   "countryEn": "Country in English",
   "partnerUniversity": "Partner in Russian",
@@ -427,7 +453,7 @@ export async function fetchExchangePrograms(language: 'ru' | 'en' = 'ru'): Promi
   "fundingEn": "Full/Partial",
   "flag": "country flag emoji"
 }]
-Include real programs: Erasmus+, DAAD, Fulbright, Bolashak, MEXT (Japan), Korean Government Scholarship.`;
+Include: Erasmus+, DAAD, Fulbright, Bolashak, MEXT (Japan), Korean Government Scholarship, Chevening, Türkiye Burslari.`;
 
   const aiResponse = await fetchFromAI(prompt, language);
   

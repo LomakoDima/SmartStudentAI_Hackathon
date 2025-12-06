@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
-import { Globe, Plane, Users, Building, Award, ChevronRight, MapPin, Calendar, ArrowRightLeft, GraduationCap, Handshake, Star, Loader2, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Globe, Plane, Users, Building, Award, ChevronRight, ChevronLeft, MapPin, Calendar, ArrowRightLeft, GraduationCap, Handshake, Star, Loader2, RefreshCw } from 'lucide-react';
 import Header from './Header';
 import Footer from './Footer';
 import { useLanguage } from '../i18n';
 import { fetchExchangePrograms, ExchangeProgramData, clearCache } from '../services/universityAPI';
+
+const ITEMS_PER_PAGE = 6;
 
 interface Partner {
   id: string;
@@ -25,7 +27,16 @@ const partners: Partner[] = [
   { id: '3', name: 'ETH Zurich', nameEn: 'ETH Zurich', country: 'Швейцария', countryEn: 'Switzerland', type: 'Технический', typeEn: 'Technical', programs: 4, students: 80, flag: '🇨🇭' },
   { id: '4', name: 'Токийский университет', nameEn: 'University of Tokyo', country: 'Япония', countryEn: 'Japan', type: 'Исследовательский', typeEn: 'Research', programs: 6, students: 150, flag: '🇯🇵' },
   { id: '5', name: 'Сорбонна', nameEn: 'Sorbonne', country: 'Франция', countryEn: 'France', type: 'Гуманитарный', typeEn: 'Humanities', programs: 7, students: 180, flag: '🇫🇷' },
-  { id: '6', name: 'TU Munich', nameEn: 'TU Munich', country: 'Германия', countryEn: 'Germany', type: 'Технический', typeEn: 'Technical', programs: 9, students: 250, flag: '🇩🇪' }
+  { id: '6', name: 'TU Munich', nameEn: 'TU Munich', country: 'Германия', countryEn: 'Germany', type: 'Технический', typeEn: 'Technical', programs: 9, students: 250, flag: '🇩🇪' },
+  { id: '7', name: 'Сеульский национальный университет', nameEn: 'Seoul National University', country: 'Южная Корея', countryEn: 'South Korea', type: 'Исследовательский', typeEn: 'Research', programs: 7, students: 130, flag: '🇰🇷' },
+  { id: '8', name: 'Пекинский университет', nameEn: 'Peking University', country: 'Китай', countryEn: 'China', type: 'Академический', typeEn: 'Academic', programs: 10, students: 280, flag: '🇨🇳' },
+  { id: '9', name: 'Университет Торонто', nameEn: 'University of Toronto', country: 'Канада', countryEn: 'Canada', type: 'Исследовательский', typeEn: 'Research', programs: 6, students: 160, flag: '🇨🇦' },
+  { id: '10', name: 'Университет Мельбурна', nameEn: 'University of Melbourne', country: 'Австралия', countryEn: 'Australia', type: 'Академический', typeEn: 'Academic', programs: 5, students: 110, flag: '🇦🇺' },
+  { id: '11', name: 'Делфтский технический университет', nameEn: 'TU Delft', country: 'Нидерланды', countryEn: 'Netherlands', type: 'Технический', typeEn: 'Technical', programs: 8, students: 190, flag: '🇳🇱' },
+  { id: '12', name: 'Politecnico di Milano', nameEn: 'Politecnico di Milano', country: 'Италия', countryEn: 'Italy', type: 'Технический', typeEn: 'Technical', programs: 6, students: 140, flag: '🇮🇹' },
+  { id: '13', name: 'Стокгольмский университет', nameEn: 'Stockholm University', country: 'Швеция', countryEn: 'Sweden', type: 'Академический', typeEn: 'Academic', programs: 4, students: 90, flag: '🇸🇪' },
+  { id: '14', name: 'Венский университет', nameEn: 'University of Vienna', country: 'Австрия', countryEn: 'Austria', type: 'Академический', typeEn: 'Academic', programs: 5, students: 100, flag: '🇦🇹' },
+  { id: '15', name: 'Университет Барселоны', nameEn: 'University of Barcelona', country: 'Испания', countryEn: 'Spain', type: 'Гуманитарный', typeEn: 'Humanities', programs: 7, students: 170, flag: '🇪🇸' }
 ];
 
 function International() {
@@ -35,14 +46,19 @@ function International() {
   const [selectedProgram, setSelectedProgram] = useState<ExchangeProgramData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exchangePage, setExchangePage] = useState(1);
+  const [partnersPage, setPartnersPage] = useState(1);
+  const loadingRef = useRef(false);
+  const lastLanguageRef = useRef(language);
 
   const getText = (ru: string, en: string) => language === 'en' ? en : ru;
 
-  useEffect(() => {
-    loadExchangePrograms();
-  }, [language]);
-
-  const loadExchangePrograms = async () => {
+  const loadExchangePrograms = useCallback(async (forceRefresh = false) => {
+    if (loadingRef.current && !forceRefresh) return;
+    if (!forceRefresh && lastLanguageRef.current === language && exchangePrograms.length > 0) return;
+    
+    loadingRef.current = true;
+    lastLanguageRef.current = language;
     setIsLoading(true);
     setError(null);
     
@@ -61,12 +77,17 @@ function International() {
         : 'An error occurred while loading data');
     } finally {
       setIsLoading(false);
+      loadingRef.current = false;
     }
-  };
+  }, [language, exchangePrograms.length]);
+
+  useEffect(() => {
+    loadExchangePrograms();
+  }, [loadExchangePrograms]);
 
   const handleRefresh = () => {
     clearCache();
-    loadExchangePrograms();
+    loadExchangePrograms(true);
   };
 
   const tabs = [
@@ -283,99 +304,193 @@ function International() {
                 </div>
               </div>
             ) : (
-              // Exchange Programs List
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {exchangePrograms.map((program) => (
-                  <div
-                    key={program.id}
-                    onClick={() => setSelectedProgram(program)}
-                    className="group bg-white/60 backdrop-blur-xl border border-white/70 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:scale-[1.02]"
-                  >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <span className="text-3xl">{program.flag}</span>
-                        <div>
-                          <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
-                            {getText(program.type, program.typeEn)}
-                          </span>
-                          <p className="text-sm text-gray-500 mt-1">
-                            {getText(program.country, program.countryEn)}
-                          </p>
+              // Exchange Programs List with Pagination
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {exchangePrograms
+                    .slice((exchangePage - 1) * ITEMS_PER_PAGE, exchangePage * ITEMS_PER_PAGE)
+                    .map((program) => (
+                    <div
+                      key={program.id}
+                      onClick={() => setSelectedProgram(program)}
+                      className="group bg-white/60 backdrop-blur-xl border border-white/70 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:scale-[1.02]"
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl">{program.flag}</span>
+                          <div>
+                            <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
+                              {getText(program.type, program.typeEn)}
+                            </span>
+                            <p className="text-sm text-gray-500 mt-1">
+                              {getText(program.country, program.countryEn)}
+                            </p>
+                          </div>
                         </div>
+                        <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                          {getText(program.funding, program.fundingEn)}
+                        </span>
                       </div>
-                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                        {getText(program.funding, program.fundingEn)}
-                      </span>
+
+                      <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-purple-600 transition-colors">
+                        {getText(program.name, program.nameEn)}
+                      </h3>
+
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                        {getText(program.description, program.descriptionEn)}
+                      </p>
+
+                      <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          {getText(program.duration, program.durationEn)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                        <span className="text-sm text-gray-500">
+                          {t.international.deadline}: {getText(program.deadline, program.deadlineEn)}
+                        </span>
+                        <span className="text-purple-600 font-medium text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
+                          {t.international.details}
+                          <ChevronRight className="w-4 h-4" />
+                        </span>
+                      </div>
                     </div>
+                  ))}
+                </div>
 
-                    <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-purple-600 transition-colors">
-                      {getText(program.name, program.nameEn)}
-                    </h3>
-
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                      {getText(program.description, program.descriptionEn)}
-                    </p>
-
-                    <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        {getText(program.duration, program.durationEn)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                      <span className="text-sm text-gray-500">
-                        {t.international.deadline}: {getText(program.deadline, program.deadlineEn)}
-                      </span>
-                      <span className="text-purple-600 font-medium text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
-                        {t.international.details}
-                        <ChevronRight className="w-4 h-4" />
-                      </span>
-                    </div>
+                {/* Pagination for Exchange Programs */}
+                {exchangePrograms.length > ITEMS_PER_PAGE && (
+                  <div className="flex items-center justify-center gap-2 mt-10">
+                    <button
+                      onClick={() => setExchangePage(p => Math.max(1, p - 1))}
+                      disabled={exchangePage === 1}
+                      className="p-2 rounded-xl bg-white/60 border border-white/70 text-gray-600 hover:bg-purple-50 hover:text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    
+                    {Array.from({ length: Math.ceil(exchangePrograms.length / ITEMS_PER_PAGE) }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setExchangePage(page)}
+                        className={`w-10 h-10 rounded-xl font-medium transition-all ${
+                          exchangePage === page
+                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
+                            : 'bg-white/60 border border-white/70 text-gray-600 hover:bg-purple-50 hover:text-purple-600'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    
+                    <button
+                      onClick={() => setExchangePage(p => Math.min(Math.ceil(exchangePrograms.length / ITEMS_PER_PAGE), p + 1))}
+                      disabled={exchangePage === Math.ceil(exchangePrograms.length / ITEMS_PER_PAGE)}
+                      className="p-2 rounded-xl bg-white/60 border border-white/70 text-gray-600 hover:bg-purple-50 hover:text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
                   </div>
-                ))}
-              </div>
+                )}
+
+                {/* Total count */}
+                <div className="text-center mt-4 text-sm text-gray-500">
+                  {language === 'ru' 
+                    ? `Показано ${Math.min(exchangePage * ITEMS_PER_PAGE, exchangePrograms.length)} из ${exchangePrograms.length} программ`
+                    : `Showing ${Math.min(exchangePage * ITEMS_PER_PAGE, exchangePrograms.length)} of ${exchangePrograms.length} programs`
+                  }
+                </div>
+              </>
             )
           )}
 
           {activeTab === 'partners' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {partners.map((partner) => (
-                <div
-                  key={partner.id}
-                  className="group bg-white/60 backdrop-blur-xl border border-white/70 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300"
-                >
-                  <div className="flex items-center gap-4 mb-4">
-                    <span className="text-4xl">{partner.flag}</span>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-800 group-hover:text-purple-600 transition-colors">
-                        {getText(partner.name, partner.nameEn)}
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        {getText(partner.country, partner.countryEn)}
-                      </p>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {partners
+                  .slice((partnersPage - 1) * ITEMS_PER_PAGE, partnersPage * ITEMS_PER_PAGE)
+                  .map((partner) => (
+                  <div
+                    key={partner.id}
+                    className="group bg-white/60 backdrop-blur-xl border border-white/70 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300"
+                  >
+                    <div className="flex items-center gap-4 mb-4">
+                      <span className="text-4xl">{partner.flag}</span>
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-800 group-hover:text-purple-600 transition-colors">
+                          {getText(partner.name, partner.nameEn)}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {getText(partner.country, partner.countryEn)}
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="mb-4">
-                    <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-                      {getText(partner.type, partner.typeEn)}
-                    </span>
-                  </div>
+                    <div className="mb-4">
+                      <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
+                        {getText(partner.type, partner.typeEn)}
+                      </span>
+                    </div>
 
-                  <div className="flex items-center justify-between text-sm text-gray-600">
-                    <div className="flex items-center gap-1">
-                      <GraduationCap className="w-4 h-4 text-purple-500" />
-                      <span>{partner.programs} {t.international.programsCount}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Users className="w-4 h-4 text-purple-500" />
-                      <span>{partner.students} {t.international.studentsCount}</span>
+                    <div className="flex items-center justify-between text-sm text-gray-600">
+                      <div className="flex items-center gap-1">
+                        <GraduationCap className="w-4 h-4 text-purple-500" />
+                        <span>{partner.programs} {t.international.programsCount}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Users className="w-4 h-4 text-purple-500" />
+                        <span>{partner.students} {t.international.studentsCount}</span>
+                      </div>
                     </div>
                   </div>
+                ))}
+              </div>
+
+              {/* Pagination for Partners */}
+              {partners.length > ITEMS_PER_PAGE && (
+                <div className="flex items-center justify-center gap-2 mt-10">
+                  <button
+                    onClick={() => setPartnersPage(p => Math.max(1, p - 1))}
+                    disabled={partnersPage === 1}
+                    className="p-2 rounded-xl bg-white/60 border border-white/70 text-gray-600 hover:bg-purple-50 hover:text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  
+                  {Array.from({ length: Math.ceil(partners.length / ITEMS_PER_PAGE) }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setPartnersPage(page)}
+                      className={`w-10 h-10 rounded-xl font-medium transition-all ${
+                        partnersPage === page
+                          ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
+                          : 'bg-white/60 border border-white/70 text-gray-600 hover:bg-purple-50 hover:text-purple-600'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  
+                  <button
+                    onClick={() => setPartnersPage(p => Math.min(Math.ceil(partners.length / ITEMS_PER_PAGE), p + 1))}
+                    disabled={partnersPage === Math.ceil(partners.length / ITEMS_PER_PAGE)}
+                    className="p-2 rounded-xl bg-white/60 border border-white/70 text-gray-600 hover:bg-purple-50 hover:text-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
                 </div>
-              ))}
-            </div>
+              )}
+
+              {/* Total count */}
+              <div className="text-center mt-4 text-sm text-gray-500">
+                {language === 'ru' 
+                  ? `Показано ${Math.min(partnersPage * ITEMS_PER_PAGE, partners.length)} из ${partners.length} партнёров`
+                  : `Showing ${Math.min(partnersPage * ITEMS_PER_PAGE, partners.length)} of ${partners.length} partners`
+                }
+              </div>
+            </>
           )}
         </div>
       </div>

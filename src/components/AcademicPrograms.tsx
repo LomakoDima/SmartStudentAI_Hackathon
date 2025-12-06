@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
-import { GraduationCap, Search, Filter, Clock, DollarSign, Users, ChevronRight, BookOpen, Award, MapPin, Star, Loader2, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { GraduationCap, Search, Filter, Clock, DollarSign, Users, ChevronRight, ChevronLeft, BookOpen, Award, MapPin, Star, Loader2, RefreshCw } from 'lucide-react';
 import Header from './Header';
 import Footer from './Footer';
 import { useLanguage } from '../i18n';
 import { fetchAcademicPrograms, ProgramData, clearCache } from '../services/universityAPI';
+
+const ITEMS_PER_PAGE = 6;
 
 const categories = [
   { ru: 'Все', en: 'All' },
@@ -32,14 +34,18 @@ function AcademicPrograms() {
   const [selectedProgram, setSelectedProgram] = useState<ProgramData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const loadingRef = useRef(false);
+  const lastLanguageRef = useRef(language);
 
   const getText = (ru: string, en: string) => language === 'en' ? en : ru;
 
-  useEffect(() => {
-    loadPrograms();
-  }, [language]);
-
-  const loadPrograms = async () => {
+  const loadPrograms = useCallback(async (forceRefresh = false) => {
+    if (loadingRef.current && !forceRefresh) return;
+    if (!forceRefresh && lastLanguageRef.current === language && programs.length > 0) return;
+    
+    loadingRef.current = true;
+    lastLanguageRef.current = language;
     setIsLoading(true);
     setError(null);
     
@@ -58,12 +64,17 @@ function AcademicPrograms() {
         : 'An error occurred while loading data');
     } finally {
       setIsLoading(false);
+      loadingRef.current = false;
     }
-  };
+  }, [language, programs.length]);
+
+  useEffect(() => {
+    loadPrograms();
+  }, [loadPrograms]);
 
   const handleRefresh = () => {
     clearCache();
-    loadPrograms();
+    loadPrograms(true);
   };
 
   const filteredPrograms = programs.filter((program) => {
@@ -82,6 +93,17 @@ function AcademicPrograms() {
     
     return matchesSearch && matchesCategory && matchesDegree;
   });
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory, selectedDegree]);
+
+  const totalPages = Math.ceil(filteredPrograms.length / ITEMS_PER_PAGE);
+  const paginatedPrograms = filteredPrograms.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-emerald-50 to-gray-100">
@@ -302,7 +324,7 @@ function AcademicPrograms() {
 
                 {/* Programs Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {filteredPrograms.map((program) => (
+                  {paginatedPrograms.map((program) => (
                     <div
                       key={program.id}
                       onClick={() => setSelectedProgram(program)}
@@ -360,6 +382,51 @@ function AcademicPrograms() {
                     <GraduationCap className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <h3 className="text-xl font-semibold text-gray-500">{t.academicPrograms.notFound}</h3>
                     <p className="text-gray-400 mt-2">{t.academicPrograms.tryOtherFilters}</p>
+                  </div>
+                )}
+
+                {/* Pagination */}
+                {filteredPrograms.length > ITEMS_PER_PAGE && (
+                  <div className="flex items-center justify-center gap-2 mt-10">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="p-2 rounded-xl bg-white/60 border border-white/70 text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-10 h-10 rounded-xl font-medium transition-all ${
+                          currentPage === page
+                            ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg'
+                            : 'bg-white/60 border border-white/70 text-gray-600 hover:bg-emerald-50 hover:text-emerald-600'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-2 rounded-xl bg-white/60 border border-white/70 text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Total count */}
+                {filteredPrograms.length > 0 && (
+                  <div className="text-center mt-4 text-sm text-gray-500">
+                    {language === 'ru' 
+                      ? `Показано ${Math.min(currentPage * ITEMS_PER_PAGE, filteredPrograms.length)} из ${filteredPrograms.length} программ`
+                      : `Showing ${Math.min(currentPage * ITEMS_PER_PAGE, filteredPrograms.length)} of ${filteredPrograms.length} programs`
+                    }
                   </div>
                 )}
               </>

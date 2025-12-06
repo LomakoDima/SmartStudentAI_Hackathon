@@ -1,7 +1,9 @@
-import { User, Award, BookOpen, TrendingUp, Target, FileText, Calendar, Star, Trophy, Settings, Bell, Shield, Globe, Palette, Mail, Lock } from 'lucide-react';
+import { User, BookOpen, TrendingUp, Target, FileText, Calendar, Star, Trophy, Settings, Bell, Shield, Globe, Palette } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useLanguage } from '../i18n/LanguageContext';
 
 function Profile() {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'overview' | 'portfolio' | 'progress' | 'achievements' | 'settings'>('overview');
   const [userName, setUserName] = useState('Ломако Дмитрий');
   const [userEmail, setUserEmail] = useState('lomakodima898@gmail.com');
@@ -14,23 +16,10 @@ function Profile() {
   }, []);
 
   const stats = [
-    { icon: BookOpen, label: 'Изучено курсов', value: '0', color: 'from-blue-500 to-cyan-500' },
-    { icon: Target, label: 'Достигнуто целей', value: '0/10', color: 'from-green-500 to-emerald-500' },
-    { icon: Star, label: 'Рейтинг', value: '0', color: 'from-yellow-500 to-orange-500' },
-    { icon: Trophy, label: 'Достижения', value: '0', color: 'from-purple-500 to-pink-500' }
-  ];
-
-  const achievements = [
-    { id: 1, title: 'Отличник', description: 'Завершено 10 курсов с отличием', icon: Trophy, unlocked: true },
-    { id: 2, title: 'Математический гений', description: 'Решено 100 задач по математике', icon: BookOpen, unlocked: true },
-    { id: 3, title: 'Исследователь', description: 'Завершено 5 исследовательских проектов', icon: Award, unlocked: false },
-    { id: 4, title: 'Лидер', description: 'Помог 20 студентам', icon: Star, unlocked: false }
-  ];
-
-  const recentActivity = [
-    { date: 'Сегодня', action: 'Завершён курс "Математический анализ"', icon: BookOpen },
-    { date: 'Вчера', action: 'Добавлено достижение "Отличник"', icon: Trophy },
-    { date: '2 дня назад', action: 'Обновлён профиль', icon: User }
+    { icon: BookOpen, label: t.profile.stats.coursesCompleted, value: '0', color: 'from-blue-500 to-cyan-500' },
+    { icon: Target, label: t.profile.stats.goalsAchieved, value: '0/10', color: 'from-green-500 to-emerald-500' },
+    { icon: Star, label: t.profile.stats.rating, value: '0', color: 'from-yellow-500 to-orange-500' },
+    { icon: Trophy, label: t.profile.stats.achievements, value: '0', color: 'from-purple-500 to-pink-500' }
   ];
 
   return (
@@ -46,10 +35,10 @@ function Profile() {
         <div className="mb-6">
           <div className="text-center mb-6">
             <h1 className="text-3xl md:text-4xl font-bold mb-2 bg-gradient-to-r from-blue-700 to-cyan-600 bg-clip-text text-transparent">
-              Личный академический профиль
+              {t.profile.title}
             </h1>
             <p className="text-sm text-gray-600 max-w-2xl mx-auto">
-              Портфолио достижений, отслеживание прогресса и персональные рекомендации
+              {t.profile.description}
             </p>
           </div>
         </div>
@@ -66,14 +55,14 @@ function Profile() {
                 <h2 className="text-2xl font-bold text-gray-800 mb-1">{userName}</h2>
                 <p className="text-gray-600 mb-2">{userEmail}</p>
                 <p className="text-gray-500 text-xs italic">
-                  Ваши интересы и специализации будут отображаться здесь после заполнения профиля
+                  {t.profile.interestsHint}
                 </p>
               </div>
               <div className="text-center md:text-right">
                 <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-1">
                   0
                 </div>
-                <div className="text-xs text-gray-600">Средний балл</div>
+                <div className="text-xs text-gray-600">{t.profile.averageScore}</div>
               </div>
             </div>
           </div>
@@ -98,11 +87,11 @@ function Profile() {
           <div className="p-2">
             <div className="flex gap-2">
               {[
-                { id: 'overview', label: 'Обзор', icon: User },
-                { id: 'portfolio', label: 'Портфолио', icon: FileText },
-                { id: 'progress', label: 'Прогресс', icon: TrendingUp },
-                { id: 'achievements', label: 'Достижения', icon: Trophy },
-                { id: 'settings', label: 'Настройки', icon: Settings }
+                { id: 'overview', label: t.profile.tabs.overview, icon: User },
+                { id: 'portfolio', label: t.profile.tabs.portfolio, icon: FileText },
+                { id: 'progress', label: t.profile.tabs.progress, icon: TrendingUp },
+                { id: 'achievements', label: t.profile.tabs.achievements, icon: Trophy },
+                { id: 'settings', label: t.profile.tabs.settings, icon: Settings }
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -131,25 +120,25 @@ function Profile() {
                 <div className="p-6 border-b border-gray-200/50">
                   <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-blue-600" />
-                    Прогресс обучения
+                    {t.profile.overview.learningProgress}
                   </h3>
                 </div>
                 <div className="p-6">
                   <div className="text-center py-10">
                     <TrendingUp className="w-14 h-14 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500 text-sm mb-1">Данные о прогрессе появятся здесь</p>
-                    <p className="text-gray-400 text-xs">после начала обучения на платформе</p>
+                    <p className="text-gray-500 text-sm mb-1">{t.profile.overview.progressHint}</p>
+                    <p className="text-gray-400 text-xs">{t.profile.overview.progressSubHint}</p>
                   </div>
                 </div>
                 <div className="p-6 border-t border-gray-200/50">
                   <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                     <Calendar className="w-5 h-5 text-blue-600" />
-                    Последняя активность
+                    {t.profile.overview.recentActivity}
                   </h3>
                   <div className="text-center py-10">
                     <Calendar className="w-14 h-14 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500 text-sm mb-1">История активности будет отображаться</p>
-                    <p className="text-gray-400 text-xs">по мере использования сервисов платформы</p>
+                    <p className="text-gray-500 text-sm mb-1">{t.profile.overview.activityHint}</p>
+                    <p className="text-gray-400 text-xs">{t.profile.overview.activitySubHint}</p>
                   </div>
                 </div>
               </div>
@@ -158,13 +147,13 @@ function Profile() {
             {activeTab === 'portfolio' && (
               <div className="bg-white/60 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg">
                 <div className="p-6 border-b border-gray-200/50">
-                  <h3 className="text-lg font-bold text-gray-800">Мои проекты</h3>
+                  <h3 className="text-lg font-bold text-gray-800">{t.profile.portfolio.title}</h3>
                 </div>
                 <div className="p-6">
                   <div className="text-center py-10">
                     <FileText className="w-14 h-14 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500 text-sm mb-1">Портфолио проектов будет доступно</p>
-                    <p className="text-gray-400 text-xs">после добавления ваших работ</p>
+                    <p className="text-gray-500 text-sm mb-1">{t.profile.portfolio.hint}</p>
+                    <p className="text-gray-400 text-xs">{t.profile.portfolio.subHint}</p>
                   </div>
                 </div>
               </div>
@@ -173,13 +162,13 @@ function Profile() {
             {activeTab === 'progress' && (
               <div className="bg-white/60 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg">
                 <div className="p-6 border-b border-gray-200/50">
-                  <h3 className="text-lg font-bold text-gray-800">Детальная статистика</h3>
+                  <h3 className="text-lg font-bold text-gray-800">{t.profile.progressTab.title}</h3>
                 </div>
                 <div className="p-6">
                   <div className="text-center py-10">
                     <TrendingUp className="w-14 h-14 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500 text-sm mb-1">Статистика обучения появится</p>
-                    <p className="text-gray-400 text-xs">после прохождения курсов и выполнения заданий</p>
+                    <p className="text-gray-500 text-sm mb-1">{t.profile.progressTab.hint}</p>
+                    <p className="text-gray-400 text-xs">{t.profile.progressTab.subHint}</p>
                   </div>
                 </div>
               </div>
@@ -188,13 +177,13 @@ function Profile() {
             {activeTab === 'achievements' && (
               <div className="bg-white/60 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg">
                 <div className="p-6 border-b border-gray-200/50">
-                  <h3 className="text-lg font-bold text-gray-800">Достижения</h3>
+                  <h3 className="text-lg font-bold text-gray-800">{t.profile.achievementsTab.title}</h3>
                 </div>
                 <div className="p-6">
                   <div className="text-center py-10">
                     <Trophy className="w-14 h-14 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500 text-sm mb-1">Ваши достижения будут отображаться здесь</p>
-                    <p className="text-gray-400 text-xs">по мере выполнения учебных задач и целей</p>
+                    <p className="text-gray-500 text-sm mb-1">{t.profile.achievementsTab.hint}</p>
+                    <p className="text-gray-400 text-xs">{t.profile.achievementsTab.subHint}</p>
                   </div>
                 </div>
               </div>
@@ -206,11 +195,11 @@ function Profile() {
                 <div className="p-6 border-b border-gray-200/50">
                   <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                     <User className="w-5 h-5 text-blue-600" />
-                    Настройки профиля
+                    {t.profile.settings.profileSettings}
                   </h3>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Имя</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t.profile.settings.name}</label>
                       <input
                         type="text"
                         value={userName}
@@ -219,7 +208,7 @@ function Profile() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t.profile.settings.email}</label>
                       <input
                         type="email"
                         value={userEmail}
@@ -228,7 +217,7 @@ function Profile() {
                       />
                     </div>
                     <button className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-300">
-                      Сохранить изменения
+                      {t.profile.settings.saveChanges}
                     </button>
                   </div>
                 </div>
@@ -237,13 +226,13 @@ function Profile() {
                 <div className="p-6 border-b border-gray-200/50">
                   <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                     <Bell className="w-5 h-5 text-blue-600" />
-                    Уведомления
+                    {t.profile.settings.notifications}
                   </h3>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium text-gray-800">Email уведомления</p>
-                        <p className="text-sm text-gray-600">Получать уведомления на почту</p>
+                        <p className="font-medium text-gray-800">{t.profile.settings.emailNotifications}</p>
+                        <p className="text-sm text-gray-600">{t.profile.settings.emailNotificationsDesc}</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" defaultChecked />
@@ -252,8 +241,8 @@ function Profile() {
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium text-gray-800">Уведомления о курсах</p>
-                        <p className="text-sm text-gray-600">Новые материалы и задания</p>
+                        <p className="font-medium text-gray-800">{t.profile.settings.courseNotifications}</p>
+                        <p className="text-sm text-gray-600">{t.profile.settings.courseNotificationsDesc}</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" defaultChecked />
@@ -262,8 +251,8 @@ function Profile() {
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium text-gray-800">Уведомления о достижениях</p>
-                        <p className="text-sm text-gray-600">Новые награды и прогресс</p>
+                        <p className="font-medium text-gray-800">{t.profile.settings.achievementNotifications}</p>
+                        <p className="text-sm text-gray-600">{t.profile.settings.achievementNotificationsDesc}</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" defaultChecked />
@@ -277,35 +266,35 @@ function Profile() {
                 <div className="p-6 border-b border-gray-200/50">
                   <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                     <Shield className="w-5 h-5 text-blue-600" />
-                    Безопасность
+                    {t.profile.settings.security}
                   </h3>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Текущий пароль</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t.profile.settings.currentPassword}</label>
                       <input
                         type="password"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Введите текущий пароль"
+                        placeholder={t.profile.settings.currentPasswordPlaceholder}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Новый пароль</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t.profile.settings.newPassword}</label>
                       <input
                         type="password"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Введите новый пароль"
+                        placeholder={t.profile.settings.newPasswordPlaceholder}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Подтвердите пароль</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t.profile.settings.confirmPassword}</label>
                       <input
                         type="password"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Повторите новый пароль"
+                        placeholder={t.profile.settings.confirmPasswordPlaceholder}
                       />
                     </div>
                     <button className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-300">
-                      Изменить пароль
+                      {t.profile.settings.changePassword}
                     </button>
                   </div>
                 </div>
@@ -314,23 +303,23 @@ function Profile() {
                 <div className="p-6 border-b border-gray-200/50">
                   <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                     <Globe className="w-5 h-5 text-blue-600" />
-                    Язык и регион
+                    {t.profile.settings.languageRegion}
                   </h3>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Язык интерфейса</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t.profile.settings.interfaceLanguage}</label>
                       <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option>Русский</option>
-                        <option>Қазақша</option>
-                        <option>English</option>
+                        <option>{t.profile.languages.russian}</option>
+                        <option>{t.profile.languages.kazakh}</option>
+                        <option>{t.profile.languages.english}</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Часовой пояс</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t.profile.settings.timezone}</label>
                       <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option>Алматы (UTC+6)</option>
-                        <option>Астана (UTC+6)</option>
-                        <option>Атырау (UTC+5)</option>
+                        <option>{t.profile.timezones.almaty}</option>
+                        <option>{t.profile.timezones.astana}</option>
+                        <option>{t.profile.timezones.atyrau}</option>
                       </select>
                     </div>
                   </div>
@@ -340,20 +329,20 @@ function Profile() {
                 <div className="p-6">
                   <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                     <Palette className="w-5 h-5 text-blue-600" />
-                    Внешний вид
+                    {t.profile.settings.appearance}
                   </h3>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Тема оформления</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t.profile.settings.theme}</label>
                       <div className="grid grid-cols-3 gap-3">
                         <button className="px-4 py-3 border-2 border-blue-600 bg-blue-50 rounded-lg font-medium text-blue-700">
-                          Светлая
+                          {t.profile.settings.themeLight}
                         </button>
                         <button className="px-4 py-3 border-2 border-gray-300 rounded-lg font-medium text-gray-700 hover:border-gray-400">
-                          Тёмная
+                          {t.profile.settings.themeDark}
                         </button>
                         <button className="px-4 py-3 border-2 border-gray-300 rounded-lg font-medium text-gray-700 hover:border-gray-400">
-                          Авто
+                          {t.profile.settings.themeAuto}
                         </button>
                       </div>
                     </div>
@@ -367,25 +356,24 @@ function Profile() {
           <div className="space-y-4">
             <div className="bg-white/60 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg">
               <div className="p-4 border-b border-gray-200/50">
-                <h3 className="font-bold text-gray-800 text-sm">Рекомендации</h3>
+                <h3 className="font-bold text-gray-800 text-sm">{t.profile.sidebar.recommendations}</h3>
               </div>
               <div className="p-4">
                 <div className="text-center py-6">
                   <Target className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500 text-xs mb-1">Персональные рекомендации</p>
-                  <p className="text-gray-400 text-xs">появятся на основе вашей активности</p>
+                  <p className="text-gray-500 text-xs mb-1">{t.profile.sidebar.personalRecommendations}</p>
+                  <p className="text-gray-400 text-xs">{t.profile.sidebar.recommendationsHint}</p>
                 </div>
               </div>
             </div>
 
             <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-2xl shadow-lg">
               <div className="p-4">
-                <Target className="w-6 h-6 text-blue-600 mb-2" />
-                <h3 className="font-bold text-gray-800 text-sm mb-2">Цели на месяц</h3>
+                <h3 className="font-bold text-gray-800 text-sm mb-2">{t.profile.sidebar.monthlyGoals}</h3>
                 <div className="text-center py-4">
                   <Target className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500 text-xs mb-1">Установите цели для</p>
-                  <p className="text-gray-400 text-xs">отслеживания прогресса</p>
+                  <p className="text-gray-500 text-xs mb-1">{t.profile.sidebar.setGoals}</p>
+                  <p className="text-gray-400 text-xs">{t.profile.sidebar.trackProgress}</p>
                 </div>
               </div>
             </div>

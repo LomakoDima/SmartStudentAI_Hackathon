@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
-import { Building2, Award, Users, Calendar, MapPin, Globe, ChevronRight, Star, BookOpen, Trophy, Loader2, RefreshCw, ExternalLink } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Building2, Award, Users, Calendar, MapPin, Globe, ChevronRight, ChevronLeft, Star, BookOpen, Trophy, Loader2, RefreshCw, ExternalLink } from 'lucide-react';
 import Header from './Header';
 import Footer from './Footer';
 import { useLanguage } from '../i18n';
 import { fetchUniversities, UniversityData, clearCache } from '../services/universityAPI';
+
+const ITEMS_PER_PAGE = 6;
 
 function AboutUniversity() {
   const { t, language } = useLanguage();
@@ -11,14 +13,19 @@ function AboutUniversity() {
   const [selectedUniversity, setSelectedUniversity] = useState<UniversityData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const loadingRef = useRef(false);
+  const lastLanguageRef = useRef(language);
 
   const getText = (ru: string, en: string) => language === 'en' ? en : ru;
 
-  useEffect(() => {
-    loadUniversities();
-  }, [language]);
-
-  const loadUniversities = async () => {
+  const loadUniversities = useCallback(async (forceRefresh = false) => {
+    // Prevent duplicate requests
+    if (loadingRef.current && !forceRefresh) return;
+    if (!forceRefresh && lastLanguageRef.current === language && universities.length > 0) return;
+    
+    loadingRef.current = true;
+    lastLanguageRef.current = language;
     setIsLoading(true);
     setError(null);
     
@@ -37,12 +44,17 @@ function AboutUniversity() {
         : 'An error occurred while loading data');
     } finally {
       setIsLoading(false);
+      loadingRef.current = false;
     }
-  };
+  }, [language, universities.length]);
+
+  useEffect(() => {
+    loadUniversities();
+  }, [loadUniversities]);
 
   const handleRefresh = () => {
     clearCache();
-    loadUniversities();
+    loadUniversities(true);
   };
 
   return (
@@ -245,62 +257,109 @@ function AboutUniversity() {
                 </div>
               </div>
             ) : (
-              // Universities List
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {universities.map((uni) => (
-                  <div
-                    key={uni.id}
-                    onClick={() => setSelectedUniversity(uni)}
-                    className="group bg-white/60 backdrop-blur-xl border border-white/70 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer hover:scale-[1.02]"
-                  >
-                    <div className="relative h-48 overflow-hidden">
-                      <img
-                        src={uni.image}
-                        alt={getText(uni.name, uni.nameEn)}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                      <div className="absolute top-4 right-4 px-3 py-1 bg-white/90 backdrop-blur-md rounded-full text-xs font-semibold text-gray-800 flex items-center gap-1">
-                        <Star className="w-3 h-3 text-yellow-500" />
-                        {uni.rating}
+              // Universities List with Pagination
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {universities
+                    .slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+                    .map((uni) => (
+                    <div
+                      key={uni.id}
+                      onClick={() => setSelectedUniversity(uni)}
+                      className="group bg-white/60 backdrop-blur-xl border border-white/70 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer hover:scale-[1.02]"
+                    >
+                      <div className="relative h-48 overflow-hidden">
+                        <img
+                          src={uni.image}
+                          alt={getText(uni.name, uni.nameEn)}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                        <div className="absolute top-4 right-4 px-3 py-1 bg-white/90 backdrop-blur-md rounded-full text-xs font-semibold text-gray-800 flex items-center gap-1">
+                          <Star className="w-3 h-3 text-yellow-500" />
+                          {uni.rating}
+                        </div>
+                        <div className="absolute bottom-4 left-4">
+                          <span className="px-3 py-1 bg-blue-600 text-white text-xs font-semibold rounded-full">
+                            {getText(uni.type, uni.typeEn)}
+                          </span>
+                        </div>
                       </div>
-                      <div className="absolute bottom-4 left-4">
-                        <span className="px-3 py-1 bg-blue-600 text-white text-xs font-semibold rounded-full">
-                          {getText(uni.type, uni.typeEn)}
-                        </span>
+                      <div className="p-6">
+                        <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-blue-600 transition-colors">
+                          {getText(uni.name, uni.nameEn)}
+                        </h3>
+                        <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-4 h-4" />
+                            {getText(uni.city, uni.cityEn)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-4 h-4" />
+                            {uni.founded}
+                          </span>
+                        </div>
+                        <p className="text-gray-600 text-sm line-clamp-2 mb-4">
+                          {getText(uni.description, uni.descriptionEn)}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-500">
+                            <Users className="w-4 h-4 inline mr-1" />
+                            {uni.students} {t.aboutUniversity.students.toLowerCase()}
+                          </span>
+                          <span className="text-blue-600 font-medium text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
+                            {t.aboutUniversity.learnMore}
+                            <ChevronRight className="w-4 h-4" />
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    <div className="p-6">
-                      <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-blue-600 transition-colors">
-                        {getText(uni.name, uni.nameEn)}
-                      </h3>
-                      <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-4 h-4" />
-                          {getText(uni.city, uni.cityEn)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          {uni.founded}
-                        </span>
-                      </div>
-                      <p className="text-gray-600 text-sm line-clamp-2 mb-4">
-                        {getText(uni.description, uni.descriptionEn)}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500">
-                          <Users className="w-4 h-4 inline mr-1" />
-                          {uni.students} {t.aboutUniversity.students.toLowerCase()}
-                        </span>
-                        <span className="text-blue-600 font-medium text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
-                          {t.aboutUniversity.learnMore}
-                          <ChevronRight className="w-4 h-4" />
-                        </span>
-                      </div>
-                    </div>
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {universities.length > ITEMS_PER_PAGE && (
+                  <div className="flex items-center justify-center gap-2 mt-10">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="p-2 rounded-xl bg-white/60 border border-white/70 text-gray-600 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    
+                    {Array.from({ length: Math.ceil(universities.length / ITEMS_PER_PAGE) }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-10 h-10 rounded-xl font-medium transition-all ${
+                          currentPage === page
+                            ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg'
+                            : 'bg-white/60 border border-white/70 text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(Math.ceil(universities.length / ITEMS_PER_PAGE), p + 1))}
+                      disabled={currentPage === Math.ceil(universities.length / ITEMS_PER_PAGE)}
+                      className="p-2 rounded-xl bg-white/60 border border-white/70 text-gray-600 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
                   </div>
-                ))}
-              </div>
+                )}
+
+                {/* Total count */}
+                <div className="text-center mt-4 text-sm text-gray-500">
+                  {language === 'ru' 
+                    ? `Показано ${Math.min(currentPage * ITEMS_PER_PAGE, universities.length)} из ${universities.length} университетов`
+                    : `Showing ${Math.min(currentPage * ITEMS_PER_PAGE, universities.length)} of ${universities.length} universities`
+                  }
+                </div>
+              </>
             )
           )}
         </div>
